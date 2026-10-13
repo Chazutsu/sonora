@@ -54,6 +54,7 @@ type ClickDetailEvent = { readonly detail: number };
 type ToggleEvent = { readonly currentTarget: { readonly open: boolean } };
 type LibraryRowView = { readonly dataset: { readonly sonoraItemId?: string } };
 type BlurContainmentEvent = {
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- DOM Node is mutable by platform contract; contains only observes it.
 	readonly currentTarget: { readonly contains: (target: Node | null) => boolean };
 	readonly relatedTarget: Node | null;
 };
@@ -108,6 +109,7 @@ function matchingChapter(item: ChapterSearchItem, query: string): ChapterMatch |
 	return chapter ? { heading: chapter.heading, index } : null;
 }
 
+// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- React owns and mutates SyntheticEvent lifecycle state.
 function handleMobileControlsKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
 	const tabStops = Array.from(
 		event.currentTarget.querySelectorAll<HTMLElement>(
@@ -1088,7 +1090,10 @@ const sonoraApp = (props: Readonly<SonoraAppProps>) => {
 												role="listitem"
 												data-sonora-item-id={item.id}
 												draggable={desktopDnDEnabled && librarySort === "manual"}
-												onDragStart={(event) => {
+												onDragStart={(
+													// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- DragEvent.dataTransfer is mutated to initialize the drag operation.
+													event,
+												) => {
 													setDraggedItemId(item.id);
 													event.dataTransfer.effectAllowed = "move";
 													event.dataTransfer.setData("text/plain", item.id);
@@ -1096,7 +1101,10 @@ const sonoraApp = (props: Readonly<SonoraAppProps>) => {
 												onDragEnd={() => {
 													setDraggedItemId(null);
 												}}
-												onDragOver={(event) => {
+												onDragOver={(
+													// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- DragEvent.preventDefault mutates browser event state to authorize dropping.
+													event,
+												) => {
 													if (
 														draggedItemId !== null &&
 														draggedItemId !== "" &&
@@ -1104,7 +1112,10 @@ const sonoraApp = (props: Readonly<SonoraAppProps>) => {
 													)
 														event.preventDefault();
 												}}
-												onDrop={(event) => {
+												onDrop={(
+													// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- DragEvent.preventDefault mutates browser event state while consuming the drop.
+													event,
+												) => {
 													event.preventDefault();
 													if (
 														draggedItemId === null ||
@@ -1225,7 +1236,10 @@ const sonoraApp = (props: Readonly<SonoraAppProps>) => {
 													aria-expanded={rowMenuItemId === item.id}
 													aria-controls={rowMenuItemId === item.id ? rowMenuId : undefined}
 													aria-haspopup="menu"
-													onClick={(event) => {
+													onClick={(
+														// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- React owns the mutable MouseEvent carrying currentTarget.
+														event,
+													) => {
 														rowMenuTrigger.current = event.currentTarget;
 														setRowMenuItemId(rowMenuItemId === item.id ? null : item.id);
 													}}
@@ -1682,7 +1696,10 @@ const sonoraApp = (props: Readonly<SonoraAppProps>) => {
 					onFocusCapture={() => {
 						undoHadFocus.current = true;
 					}}
-					onBlurCapture={(event: BlurContainmentEvent) => {
+					onBlurCapture={(
+						// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- React owns the mutable FocusEvent carrying relatedTarget.
+						event: BlurContainmentEvent,
+					) => {
 						if (!event.currentTarget.contains(event.relatedTarget)) {
 							undoHadFocus.current = false;
 						}

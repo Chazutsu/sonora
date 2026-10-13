@@ -14,6 +14,7 @@ type ListeningState = {
 };
 
 export async function setUpNextDurably(
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- This transaction mutates the listening state and restores it if persistence fails.
 	state: ListeningState,
 	id: string | null,
 	persistCritical: () => Promise<boolean>,
@@ -42,7 +43,9 @@ export async function setUpNextDurably(
  * failed transition retained by PersistenceQueue.
  */
 export async function advanceListeningAfterEnd(
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- This transaction mutates the listening state and restores it if persistence fails.
 	state: ListeningState,
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- The active queue item is advanced or completed and restored if persistence fails.
 	item: QueueItem,
 	persistCritical: () => Promise<boolean>,
 	persistRollback: () => Promise<void>,

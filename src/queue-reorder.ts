@@ -40,7 +40,9 @@ export function moveQueueItemAmongVisibleIds<Queue extends readonly ReadonlyQueu
 }
 
 export async function reorderQueueDurably(
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- This transaction swaps the state's mutable queue and restores its order if persistence fails.
 	state: QueueState,
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- The exact mutable queue instance is installed and compared by identity during rollback.
 	nextQueue: QueueItem[],
 	persistCritical: () => Promise<boolean>,
 	persistRollback: () => Promise<void>,

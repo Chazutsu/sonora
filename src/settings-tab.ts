@@ -11,7 +11,9 @@ type SonoraSettingKey = keyof SonoraSettings;
 
 export class SonoraSettingTab extends PluginSettingTab {
 	constructor(
+		// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Obsidian App is a mutable SDK service required by the base constructor.
 		app: SonoraPlugin["app"],
+		// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- The settings tab invokes lifecycle methods on its mutable plugin owner.
 		private readonly plugin: SonoraPlugin,
 	) {
 		super(app, plugin);
@@ -81,17 +83,24 @@ export class SonoraSettingTab extends PluginSettingTab {
 			{
 				name: copy.settingsSupport,
 				desc: copy.settingsSupportDesc,
-				render: (setting) => {
+				render: (
+					// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Obsidian Setting is a mutable fluent UI builder.
+					setting,
+				) => {
 					setting
-						.addButton((button) =>
-							button
-								.setButtonText(copy.settingsReportIssue)
-								.onClick(() => window.open(SONORA_ISSUES_URL, "_blank", "noopener,noreferrer")),
+						.addButton(
+							// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Obsidian ButtonComponent is a mutable fluent UI builder.
+							(button) =>
+								button
+									.setButtonText(copy.settingsReportIssue)
+									.onClick(() => window.open(SONORA_ISSUES_URL, "_blank", "noopener,noreferrer")),
 						)
-						.addButton((button) =>
-							button
-								.setButtonText(copy.settingsDonate)
-								.onClick(() => window.open(SONORA_DONATE_URL, "_blank", "noopener,noreferrer")),
+						.addButton(
+							// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Obsidian ButtonComponent is a mutable fluent UI builder.
+							(button) =>
+								button
+									.setButtonText(copy.settingsDonate)
+									.onClick(() => window.open(SONORA_DONATE_URL, "_blank", "noopener,noreferrer")),
 						);
 				},
 			},

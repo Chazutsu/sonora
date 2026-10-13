@@ -113,8 +113,12 @@ type PersistenceSnapshot = Omit<
 
 class NotePickerModal extends FuzzySuggestModal<TFile> {
 	constructor(
+		// Obsidian's modal base class requires the mutable App instance identity.
+		// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Obsidian owns this mutable host object.
 		app: Readonly<SonoraPlugin["app"]>,
 		private readonly mode: "note" | "drill",
+		// TFile is an SDK-owned mutable class passed back to vault APIs by identity.
+		// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- The vault callback preserves mutable TFile identity.
 		private readonly onChoose: (file: Readonly<TFile>) => void,
 	) {
 		super(app);
@@ -132,12 +136,16 @@ class NotePickerModal extends FuzzySuggestModal<TFile> {
 				) => right.stat.mtime - left.stat.mtime,
 			);
 	}
+	// This overrides Obsidian's mutable TFile callback contract.
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- This is an Obsidian SDK override boundary.
 	getItemText(file: Readonly<TFile>) {
 		const folder = file.parent?.path;
 		return folder !== undefined && folder !== "" && folder !== "/"
 			? `${file.basename} — ${folder}`
 			: file.basename;
 	}
+	// This overrides Obsidian's mutable TFile callback contract.
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- This is an Obsidian SDK override boundary.
 	onChooseItem(file: Readonly<TFile>) {
 		this.onChoose(file);
 	}
@@ -146,7 +154,11 @@ class NotePickerModal extends FuzzySuggestModal<TFile> {
 class SonoraView extends ItemView {
 	private root: Root | null = null;
 	constructor(
+		// ItemView must retain Obsidian's mutable WorkspaceLeaf instance.
+		// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- ItemView owns the mutable leaf identity.
 		leaf: Readonly<WorkspaceLeaf>,
+		// The view invokes state-changing plugin commands by design.
+		// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- The view intentionally invokes mutable plugin state.
 		private readonly plugin: Readonly<SonoraPlugin>,
 	) {
 		super(leaf);
@@ -423,22 +435,26 @@ export default class SonoraPlugin extends Plugin {
 		});
 		this.lastMarkdownFile = this.resolveInitialSourceFile();
 		this.registerEvent(
+			// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Obsidian emits its mutable TFile identity.
 			this.app.workspace.on("file-open", (file) => {
 				if (file?.extension === "md") this.lastMarkdownFile = file;
 				this.refresh();
 			}),
 		);
 		this.registerEvent(
+			// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Vault events expose mutable SDK file objects.
 			this.app.vault.on("modify", (file) => {
 				if (file instanceof TFile && file.extension === "md") this.enqueueFileModify(file);
 			}),
 		);
 		this.registerEvent(
+			// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Rename events preserve mutable vault object identity.
 			this.app.vault.on("rename", (file, oldPath) => {
 				if (file instanceof TFile) this.enqueueFileRename(file, oldPath);
 			}),
 		);
 		this.registerEvent(
+			// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Delete events expose mutable vault object identity.
 			this.app.vault.on("delete", (file) => {
 				if (file instanceof TFile) {
 					const { path } = file;
@@ -473,6 +489,7 @@ export default class SonoraPlugin extends Plugin {
 				},
 			);
 		}
+		// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Obsidian transfers its mutable WorkspaceLeaf to the view factory.
 		this.registerView(VIEW_TYPE, (leaf) => {
 			return new SonoraView(leaf, this);
 		});
@@ -572,9 +589,15 @@ export default class SonoraPlugin extends Plugin {
 	}
 
 	openNotePicker(mode: "note" | "drill") {
-		new NotePickerModal(this.app, mode, (file) => void this.addFile(file, mode)).open();
+		new NotePickerModal(
+			this.app,
+			mode,
+			// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- The picker returns the SDK-owned TFile identity.
+			(file) => void this.addFile(file, mode),
+		).open();
 	}
 
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Vault read APIs require the mutable TFile identity.
 	private async addFile(file: Readonly<TFile>, mode: "note" | "drill") {
 		if (mode === "drill") {
 			await this.addVocabularyFile(file);
@@ -630,6 +653,7 @@ export default class SonoraPlugin extends Plugin {
 		await this.addVocabularyFile(file);
 	}
 
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Vault read APIs require the mutable TFile identity.
 	private async addVocabularyFile(file: Readonly<TFile>) {
 		const markdown = await this.app.vault.cachedRead(file);
 		const chapters = vocabularyChapters(vocabularyFromMarkdown(markdown));
@@ -1388,6 +1412,7 @@ export default class SonoraPlugin extends Plugin {
 		const result = await hydrateQueueItems(
 			this.data.queue,
 			(path) => this.resolveQueueFile(path),
+			// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Hydration mutates the item and preserves SDK file identity.
 			async (item, file) => {
 				await this.updateItemFromFile(item, file);
 			},
@@ -1409,6 +1434,7 @@ export default class SonoraPlugin extends Plugin {
 		await this.persist();
 		this.refresh();
 	}
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Refresh must pass the SDK-owned TFile back to vault APIs.
 	private async refreshFile(file: Readonly<TFile>) {
 		if (!this.data.queue.some((item: ReadonlyQueueItem) => sameVaultPath(item.path, file.path)))
 			return;
@@ -1428,6 +1454,7 @@ export default class SonoraPlugin extends Plugin {
 		this.refresh();
 		this.refreshCoordinator?.forgetIfCurrent(file.path, result.generation);
 	}
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Modify events preserve mutable SDK file identity.
 	private enqueueFileModify(file: Readonly<TFile>) {
 		if (!this.vaultEvents) return;
 		enqueueVaultModify(
@@ -1437,12 +1464,14 @@ export default class SonoraPlugin extends Plugin {
 				const current = this.app.vault.getAbstractFileByPath(path);
 				return current instanceof TFile && current.extension === "md" ? current : null;
 			},
+			// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- The resolved TFile remains owned by the vault SDK.
 			async (current) => {
 				await this.refreshFile(current);
 			},
 			(path) => this.data.queue.some((item: ReadonlyQueueItem) => sameVaultPath(item.path, path)),
 		);
 	}
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Rename events preserve mutable SDK file identity.
 	private enqueueFileRename(file: Readonly<TFile>, oldPath: string) {
 		if (!this.vaultEvents) return;
 		enqueueVaultRename(
@@ -1453,11 +1482,13 @@ export default class SonoraPlugin extends Plugin {
 				const current = this.app.vault.getAbstractFileByPath(path);
 				return current instanceof TFile && current.extension === "md" ? current : null;
 			},
+			// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Rename resolution returns an SDK-owned mutable TFile.
 			async (path, previousPath, current) => {
 				await this.renameFile(path, previousPath, current);
 			},
 		);
 	}
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Rename handling consumes the vault's mutable file identity.
 	private async renameFile(path: string, oldPath: string, file: Readonly<TFile> | null) {
 		this.refreshCoordinator?.invalidate(oldPath);
 		this.refreshCoordinator?.forget(oldPath);
@@ -1532,10 +1563,12 @@ export default class SonoraPlugin extends Plugin {
 		this.updateMediaSessionState("none");
 		if ("mediaSession" in navigator) navigator.mediaSession.metadata = null;
 	}
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Hydration intentionally mutates the item and reads an SDK TFile.
 	private async updateItemFromFile(item: QueueItem, file: Readonly<TFile>) {
 		const markdown = await this.app.vault.cachedRead(file);
 		this.updateItemFromMarkdown(item, file, markdown);
 	}
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Parsing intentionally replaces mutable queue-item fields.
 	private updateItemFromMarkdown(item: QueueItem, file: Readonly<TFile>, markdown: string) {
 		const chapters =
 			item.kind === "drill"
@@ -1548,6 +1581,7 @@ export default class SonoraPlugin extends Plugin {
 		item.loadError = false;
 		item.chapterIndex = Math.min(item.chapterIndex, Math.max(0, chapters.length - 1));
 	}
+	// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Metadata lookup requires the SDK-owned TFile path identity.
 	private coverUrl(file: Readonly<TFile>, markdown: string): string | undefined {
 		try {
 			const reference = coverReferenceFromMarkdown(markdown);
@@ -1566,6 +1600,7 @@ export default class SonoraPlugin extends Plugin {
 		return (
 			this.app.vault
 				.getMarkdownFiles()
+				// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Vault enumeration returns mutable SDK TFile instances.
 				.find((file: Readonly<TFile>) => sameVaultPath(file.path, path)) ?? null
 		);
 	}
