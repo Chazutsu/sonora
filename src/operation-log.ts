@@ -26,6 +26,22 @@ export type OperationLogDocument = {
 	operations: SonoraOperation[];
 };
 
+type ReadonlySonoraOperation = Readonly<SonoraOperation>;
+type ReadonlyOperationLogDocument = Omit<Readonly<OperationLogDocument>, "operations"> & {
+	readonly operations: readonly ReadonlySonoraOperation[];
+};
+type ReadonlyStoredSonoraData = Omit<
+	Readonly<StoredSonoraData>,
+	"settings" | "queue" | "pendingVoiceMemoLinks" | "persistenceWatermark"
+> & {
+	readonly settings: Readonly<StoredSonoraData["settings"]>;
+	readonly queue: readonly Readonly<StoredQueueItem>[];
+	readonly pendingVoiceMemoLinks: readonly Readonly<
+		StoredSonoraData["pendingVoiceMemoLinks"][number]
+	>[];
+	readonly persistenceWatermark?: Readonly<NonNullable<StoredSonoraData["persistenceWatermark"]>>;
+};
+
 const QUEUE_FIELDS = [
 	"id",
 	"path",
@@ -41,7 +57,7 @@ const SETTINGS_FIELDS = Object.keys(DEFAULT_SETTINGS) as (keyof typeof DEFAULT_S
 
 const queueEntityId = (id: string) => `${QUEUE_ENTITY_PREFIX}${encodeURIComponent(id)}`;
 
-const canonicalOperation = (operation: SonoraOperation) =>
+const canonicalOperation = (operation: ReadonlySonoraOperation) =>
 	JSON.stringify([
 		operation.timestamp,
 		operation.deviceId,
@@ -53,7 +69,10 @@ const canonicalOperation = (operation: SonoraOperation) =>
 	]);
 
 /** Total ordering used for every conflict, including equal logical timestamps. */
-export function compareOperations(left: SonoraOperation, right: SonoraOperation): number {
+export function compareOperations(
+	left: ReadonlySonoraOperation,
+	right: ReadonlySonoraOperation,
+): number {
 	if (left.timestamp !== right.timestamp) return left.timestamp - right.timestamp;
 	const byDevice = left.deviceId.localeCompare(right.deviceId);
 	if (byDevice !== 0) return byDevice;
@@ -62,13 +81,15 @@ export function compareOperations(left: SonoraOperation, right: SonoraOperation)
 	return canonicalOperation(left).localeCompare(canonicalOperation(right));
 }
 
-function later(left: SonoraOperation | undefined, right: SonoraOperation): SonoraOperation {
+function later<T extends ReadonlySonoraOperation>(left: T | undefined, right: T): T {
 	return !left || compareOperations(left, right) < 0 ? right : left;
 }
 
 /** Merges device logs without depending on file read order. */
-export function mergeOperations(...logs: readonly SonoraOperation[][]): SonoraOperation[] {
-	const byOperationId = new Map<string, SonoraOperation>();
+export function mergeOperations<T extends ReadonlySonoraOperation>(
+	...logs: readonly (readonly T[])[]
+): T[] {
+	const byOperationId = new Map<string, T>();
 	for (const operation of logs.flat()) {
 		const existing = byOperationId.get(operation.operationId);
 		byOperationId.set(operation.operationId, later(existing, operation));
@@ -77,14 +98,14 @@ export function mergeOperations(...logs: readonly SonoraOperation[][]): SonoraOp
 }
 
 function isAfterEntityTombstone(
-	operation: SonoraOperation | undefined,
-	tombstone: SonoraOperation | undefined,
-): operation is SonoraOperation {
+	operation: ReadonlySonoraOperation | undefined,
+	tombstone: ReadonlySonoraOperation | undefined,
+): operation is ReadonlySonoraOperation {
 	return Boolean(operation && (!tombstone || compareOperations(tombstone, operation) < 0));
 }
 
 function valueOf(
-	fields: Map<string, SonoraOperation>,
+	fields: Readonly<Pick<ReadonlyMap<string, ReadonlySonoraOperation>, "get">>,
 	field: string,
 	fallback: OperationValue,
 ): OperationValue {
@@ -93,10 +114,11 @@ function valueOf(
 }
 
 /** Reduces an unordered log into the same snapshot on every device. */
-export function reduceOperations(operations: readonly SonoraOperation[]): StoredSonoraData {
-	const fieldsByEntity = new Map<string, Map<string, SonoraOperation>>();
+export function reduceOperations(operations: readonly ReadonlySonoraOperation[]): StoredSonoraData {
+	const fieldsByEntity = new Map<string, Map<string, ReadonlySonoraOperation>>();
 	for (const operation of mergeOperations([...operations])) {
-		const fields = fieldsByEntity.get(operation.entityId) ?? new Map<string, SonoraOperation>();
+		const fields =
+			fieldsByEntity.get(operation.entityId) ?? new Map<string, ReadonlySonoraOperation>();
 		fields.set(operation.field, later(fields.get(operation.field), operation));
 		fieldsByEntity.set(operation.entityId, fields);
 	}
@@ -115,7 +137,9 @@ export function reduceOperations(operations: readonly SonoraOperation[]): Stored
 		if (!entityId.startsWith(QUEUE_ENTITY_PREFIX)) continue;
 		const entityTombstone = fields.get(ENTITY_TOMBSTONE_FIELD);
 		const liveFields = new Map(
-			[...fields].filter(([, operation]) => isAfterEntityTombstone(operation, entityTombstone)),
+			[...fields].filter((entry: readonly [string, ReadonlySonoraOperation]) =>
+				isAfterEntityTombstone(entry[1], entityTombstone),
+			),
 		);
 		const id = valueOf(
 			liveFields,
@@ -138,19 +162,23 @@ export function reduceOperations(operations: readonly SonoraOperation[]): Stored
 			loop: valueOf(liveFields, "loop", false) === true,
 		});
 	}
-	queue.sort((left, right) => left.addedAt - right.addedAt || left.id.localeCompare(right.id));
+	queue.sort(
+		(left: Readonly<StoredQueueItem>, right: Readonly<StoredQueueItem>) =>
+			left.addedAt - right.addedAt || left.id.localeCompare(right.id),
+	);
 
 	const rootFields = fieldsByEntity.get(SONORA_ROOT_ENTITY_ID) ?? new Map();
 	const storedActive = valueOf(rootFields, "activeItemId", null);
 	const activeItemId =
-		typeof storedActive === "string" && queue.some((item) => item.id === storedActive)
+		typeof storedActive === "string" &&
+		queue.some((item: Readonly<StoredQueueItem>) => item.id === storedActive)
 			? storedActive
 			: (queue[0]?.id ?? null);
 	const storedUpNext = valueOf(rootFields, "upNextItemId", null);
 	const upNextItemId =
 		typeof storedUpNext === "string" &&
 		storedUpNext !== activeItemId &&
-		queue.some((item) => item.id === storedUpNext && !item.completed)
+		queue.some((item: Readonly<StoredQueueItem>) => item.id === storedUpNext && !item.completed)
 			? storedUpNext
 			: null;
 	const pendingValue = valueOf(rootFields, "pendingVoiceMemoLinks", "[]");
@@ -185,8 +213,8 @@ type OperationWriter = (
 ) => void;
 
 function snapshotDiff(
-	previous: StoredSonoraData | null,
-	next: StoredSonoraData,
+	previous: ReadonlyStoredSonoraData | null,
+	next: ReadonlyStoredSonoraData,
 	write: OperationWriter,
 ) {
 	for (const field of SETTINGS_FIELDS) {
@@ -228,7 +256,7 @@ export function createOperationLog(deviceId: string): OperationLogDocument {
 
 /** Converts the legacy snapshot to a device log. Safe to call once during migration. */
 export function migrateStoredData(
-	snapshot: StoredSonoraData,
+	snapshot: ReadonlyStoredSonoraData,
 	deviceId: string,
 ): OperationLogDocument {
 	return appendSnapshot(createOperationLog(deviceId), snapshot);
@@ -236,8 +264,8 @@ export function migrateStoredData(
 
 /** Appends only changed fields and advances a Lamport-style device-local clock. */
 export function appendSnapshot(
-	document: OperationLogDocument,
-	snapshot: StoredSonoraData,
+	document: ReadonlyOperationLogDocument,
+	snapshot: ReadonlyStoredSonoraData,
 ): OperationLogDocument {
 	const operations = [...document.operations];
 	let clock = Math.max(document.clock, ...operations.map((operation) => operation.timestamp), 0);
