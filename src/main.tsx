@@ -37,11 +37,13 @@ import { advanceListeningAfterEnd, setUpNextDurably } from "./playback-transitio
 import { reorderQueueById, reorderQueueDurably, type QueuePlacement } from "./queue-reorder";
 import {
 	DEFAULT_SETTINGS,
+	type PendingVoiceMemoLink,
 	type QueueItem,
 	type ReadonlyQueueItem,
 	type SonoraData,
 	type SonoraSettings,
 	type StoredSonoraData,
+	type StoredQueueItem,
 } from "./types";
 import { SonoraSettingTab } from "./settings-tab";
 import { vocabularyChapters, vocabularyFromMarkdown } from "./vocabulary";
@@ -68,22 +70,45 @@ const VIEW_TYPE = "sonora-listening-workspace";
 function legacyBrowserStorage(): { getItem(key: string): string | null } | null {
 	try {
 		const storage = Reflect.get(window, ["local", "Storage"].join("")) as unknown;
-		if (
-			typeof storage === "object" &&
-			storage !== null &&
-			typeof Reflect.get(storage, "getItem") === "function"
-		)
-			return storage as { getItem(key: string): string | null };
+		if (typeof storage === "object" && storage !== null) {
+			const getItem: unknown = Reflect.get(storage, "getItem");
+			if (typeof getItem === "function")
+				return {
+					getItem(key) {
+						const value: unknown = Reflect.apply(getItem, storage, [key]);
+						return typeof value === "string" ? value : null;
+					},
+				};
+		}
 	} catch {
 		// Storage access may be unavailable in hardened or private web views.
 	}
 	return null;
 }
 
+const supportsAudioRecording = (): boolean => {
+	const mediaDevices: unknown = Reflect.get(navigator, "mediaDevices");
+	return (
+		typeof mediaDevices === "object" &&
+		mediaDevices !== null &&
+		typeof Reflect.get(mediaDevices, "getUserMedia") === "function" &&
+		typeof Reflect.get(window, "MediaRecorder") === "function"
+	);
+};
+
 type RecordingContext = Record<string, unknown> & {
 	itemId: string;
 	path: string;
 	title: string;
+};
+type PersistenceSnapshot = Omit<
+	Readonly<StoredSonoraData>,
+	"settings" | "queue" | "pendingVoiceMemoLinks" | "persistenceWatermark"
+> & {
+	readonly settings: Readonly<SonoraSettings>;
+	readonly queue: readonly Readonly<StoredQueueItem>[];
+	readonly pendingVoiceMemoLinks: readonly Readonly<PendingVoiceMemoLink>[];
+	readonly persistenceWatermark?: Readonly<NonNullable<StoredSonoraData["persistenceWatermark"]>>;
 };
 
 class NotePickerModal extends FuzzySuggestModal<TFile> {
@@ -240,8 +265,8 @@ export default class SonoraPlugin extends Plugin {
 	private recallTimer: number | null = null;
 	private transportGeneration = 0;
 	private renderedProgressKey: string | null = null;
-	private persistenceQueue: PersistenceQueue<StoredSonoraData> | null = null;
-	private persistenceJournal: PersistenceJournal<StoredSonoraData> | null = null;
+	private persistenceQueue: PersistenceQueue<PersistenceSnapshot> | null = null;
+	private persistenceJournal: PersistenceJournal<PersistenceSnapshot> | null = null;
 	private refreshCoordinator: FileRefreshCoordinator<string> | null = null;
 	private vaultEvents: VaultEventQueue | null = null;
 	private readonly removalUndo = new RemovalUndoHistory(DEFAULT_REMOVAL_UNDO_DURATION_MS);
@@ -283,7 +308,7 @@ export default class SonoraPlugin extends Plugin {
 		const copy = copyFor(this.data.settings.interfaceLanguage);
 		if (!journalReady) notifySaveFailure();
 		this.persistenceQueue = new PersistenceQueue(
-			async (snapshot: Readonly<StoredSonoraData>) => {
+			async (snapshot: PersistenceSnapshot) => {
 				if (!journalReady) throw new Error("Sonora persistence journal is unavailable");
 				const receipt = await this.persistenceJournal?.write(snapshot);
 				if (receipt) {
@@ -343,7 +368,10 @@ export default class SonoraPlugin extends Plugin {
 				await Promise.resolve();
 				return stream;
 			},
-			createRecorder: (stream) => new MediaRecorder(stream as MediaStream),
+			createRecorder: (stream) => {
+				if (!(stream instanceof MediaStream)) throw new Error("Expected an audio MediaStream");
+				return new MediaRecorder(stream);
+			},
 			resolveOutputPath: ({ context, mimeType, startedAt }) =>
 				recordingOutputPath(
 					this.data.settings.recordingFolder,
@@ -959,10 +987,7 @@ export default class SonoraPlugin extends Plugin {
 			return;
 		}
 		if (session.currentPhase() !== "idle") return;
-		if (
-			navigator.mediaDevices?.getUserMedia === undefined ||
-			typeof MediaRecorder === "undefined"
-		) {
+		if (!supportsAudioRecording()) {
 			this.recordingAccessIssue = "unsupported";
 			this.refresh();
 			return;
@@ -1065,7 +1090,9 @@ export default class SonoraPlugin extends Plugin {
 						await this.saveRecording(payload);
 						resolve();
 					} catch (error) {
-						reject(error);
+						reject(
+							error instanceof Error ? error : new Error("Recording save failed", { cause: error }),
+						);
 					}
 				},
 			);
@@ -1208,7 +1235,7 @@ export default class SonoraPlugin extends Plugin {
 					await this.persist();
 				},
 			);
-			if (generation !== this.transportGeneration || this.recording) return;
+			if (this.playbackStateChanged(generation)) return;
 			if (result.kind === "save-failed") {
 				this.playbackError = this.copy().noticeSaveFailed;
 				this.updateMediaSessionState("none");
@@ -1221,20 +1248,22 @@ export default class SonoraPlugin extends Plugin {
 			item.chapterIndex = 0;
 			item.completed = false;
 			await this.persist();
-			if (generation !== this.transportGeneration || this.recording) return;
+			if (this.playbackStateChanged(generation)) return;
 			this.playCurrent();
 		} else {
 			item.completed = true;
 			await this.persist();
-			if (
-				generation !== this.transportGeneration ||
-				this.recording ||
-				(this.playbackError !== null && this.playbackError !== "")
-			)
-				return;
+			if (this.playbackStateChanged(generation, true)) return;
 			this.updateMediaSessionState("none");
 		}
 		this.refresh();
+	}
+	private playbackStateChanged(generation: number, includeError = false) {
+		return (
+			generation !== this.transportGeneration ||
+			this.recording ||
+			(includeError && this.playbackError !== null && this.playbackError !== "")
+		);
 	}
 	private active(itemId = this.data.activeItemId ?? undefined) {
 		if (itemId !== (this.data.activeItemId ?? undefined)) return undefined;
@@ -1438,8 +1467,8 @@ export default class SonoraPlugin extends Plugin {
 		this.data.pendingVoiceMemoLinks = renamePendingVoiceMemoPaths(previousPending, oldPath, path);
 		const renamedPending = this.data.pendingVoiceMemoLinks.some(
 			(item: Readonly<(typeof previousPending)[number]>, index) =>
-				item.audioPath !== previousPending[index]?.audioPath ||
-				item.sourcePath !== previousPending[index]?.sourcePath,
+				item.audioPath !== previousPending.at(index)?.audioPath ||
+				item.sourcePath !== previousPending.at(index)?.sourcePath,
 		);
 		const items = this.data.queue.filter((item: ReadonlyQueueItem) =>
 			sameVaultPath(item.path, oldPath),

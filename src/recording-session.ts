@@ -67,7 +67,7 @@ export interface RecordingSessionOptions<Context extends Readonly<Record<string,
 	onCheckpointPart?(input: {
 		readonly sessionId: string;
 		readonly index: number;
-		readonly blob: Blob;
+		readonly blob: Readonly<Blob>;
 	}): Promise<void>;
 	onCheckpointReady?(payload: Readonly<RecordingPayload<Context>>): Promise<void>;
 	onSaveConfirmed?(sessionId: string): Promise<void>;
@@ -86,6 +86,10 @@ export interface RecordingSessionOptions<Context extends Readonly<Record<string,
 		readonly startedAt: number;
 		readonly sessionId: string;
 	}) => string;
+}
+
+function asError(value: unknown, message: string): Error {
+	return value instanceof Error ? value : new Error(message, { cause: value });
 }
 
 const DEFAULT_MAX_DURATION_MS = 10 * 60 * 1_000;
@@ -238,7 +242,7 @@ export class RecordingSession<Context extends Readonly<Record<string, unknown>>>
 					await Promise.resolve();
 					return checkpoint;
 				})
-				.catch((error) => {
+				.catch((error: unknown) => {
 					this.checkpointError = error;
 					this.requestStop(generation);
 				});
@@ -300,7 +304,8 @@ export class RecordingSession<Context extends Readonly<Record<string, unknown>>>
 
 		try {
 			await this.checkpointQueue;
-			if (this.checkpointError !== null) throw this.checkpointError;
+			if (this.checkpointError !== null)
+				throw asError(this.checkpointError, "Recording checkpoint failed");
 			await this.options.onCheckpointReady?.(payload);
 			if (this.unloading) return;
 			await this.options.onSave(payload);
@@ -376,12 +381,14 @@ export class RecordingSession<Context extends Readonly<Record<string, unknown>>>
 
 	private clearLimitTimer(): void {
 		if (this.timer === null) return;
-		(this.options.clearTimer ?? clearTimeout)(this.timer as ReturnType<typeof setTimeout>);
+		const clear = this.options.clearTimer;
+		if (clear) clear(this.timer);
+		else if (typeof this.timer === "number") window.clearTimeout(this.timer);
 		this.timer = null;
 	}
 
 	private setTimer(callback: () => void, delayMs: number): unknown {
-		return (this.options.setTimer ?? setTimeout)(callback, delayMs);
+		return (this.options.setTimer ?? window.setTimeout)(callback, delayMs);
 	}
 
 	private now(): number {

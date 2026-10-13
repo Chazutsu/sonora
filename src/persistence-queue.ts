@@ -110,19 +110,19 @@ export class PersistenceQueue<T> {
 				await this.write(entry.snapshot);
 				this.resolveCritical(entry.revision, true);
 				this.errorReported = false;
-				if (this.latest === undefined) this.dirtyState = false;
+				if (this.currentLatest() === undefined) this.dirtyState = false;
 			} catch (error) {
 				this.resolveCritical(entry.revision, false);
 				// A newer desired state supersedes the failed snapshot and must still be
 				// attempted. Otherwise retain the failed state for an explicit retry.
-				const hasNewerSnapshot = this.latest !== undefined;
+				const hasNewerSnapshot = this.currentLatest() !== undefined;
 				if (!hasNewerSnapshot)
 					this.latest = {
 						snapshot: entry.snapshot,
 						revision: ++this.nextRevision,
 					};
 				this.dirtyState = true;
-				if (!hasNewerSnapshot && !this.disposeRequested && !this.disposed && !this.errorReported) {
+				if (!hasNewerSnapshot && this.shouldReportError()) {
 					this.errorReported = true;
 					try {
 						this.options.onError?.(error);
@@ -140,6 +140,14 @@ export class PersistenceQueue<T> {
 			this.resolveAllCritical(false);
 		}
 		this.finishIdle();
+	}
+
+	private currentLatest(): { snapshot: T; revision: number } | undefined {
+		return this.latest;
+	}
+
+	private shouldReportError(): boolean {
+		return !this.disposeRequested && !this.disposed && !this.errorReported;
 	}
 
 	private enqueue(snapshot: T): number {
