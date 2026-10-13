@@ -228,11 +228,11 @@ function snapshotDiff(
 	if (!previous || (previous.upNextItemId ?? null) !== (next.upNextItemId ?? null)) {
 		write(SONORA_ROOT_ENTITY_ID, "upNextItemId", next.upNextItemId ?? null);
 	}
-	if (!previous || !equal(previous.pendingVoiceMemoLinks ?? [], next.pendingVoiceMemoLinks ?? [])) {
+	if (!previous || !equal(previous.pendingVoiceMemoLinks, next.pendingVoiceMemoLinks)) {
 		write(
 			SONORA_ROOT_ENTITY_ID,
 			"pendingVoiceMemoLinks",
-			JSON.stringify(next.pendingVoiceMemoLinks ?? []),
+			JSON.stringify(next.pendingVoiceMemoLinks),
 		);
 	}
 

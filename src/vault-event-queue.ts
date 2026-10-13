@@ -79,14 +79,14 @@ export class VaultEventQueue {
 		return this.append(event, operation, key, context);
 	}
 
-	whenIdle(): Promise<void> {
-		return this.tail;
+	async whenIdle(): Promise<void> {
+		await this.tail;
 	}
 
-	close(options: Readonly<{ discardPending?: boolean }> = {}): Promise<void> {
+	async close(options: Readonly<{ discardPending?: boolean }> = {}): Promise<void> {
 		this.accepting = false;
 		this.discardPending = options.discardPending === true;
-		return this.whenIdle();
+		await this.whenIdle();
 	}
 
 	isAccepting(): boolean {
@@ -108,7 +108,9 @@ export class VaultEventQueue {
 		if (latestKey !== undefined && latestKey !== "") this.pendingLatest.set(latestKey, entry);
 		this.pendingCount += 1;
 		this.reportPressure();
-		this.tail = this.tail.then(() => this.run(entry));
+		this.tail = this.tail.then(async () => {
+			await this.run(entry);
+		});
 		return true;
 	}
 

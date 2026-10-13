@@ -126,7 +126,7 @@ export class RecordingSession<Context extends Readonly<Record<string, unknown>>>
 
 		const generation = ++this.generation;
 		let errorStage: RecordingErrorStage = "access";
-		this.context = Object.freeze({ ...context }) as Readonly<Context>;
+		this.context = Object.freeze({ ...context });
 		this.transition("requesting");
 
 		try {
@@ -229,9 +229,15 @@ export class RecordingSession<Context extends Readonly<Record<string, unknown>>>
 		if (this.options.onCheckpointPart) {
 			const index = this.checkpointIndex++;
 			this.checkpointQueue = this.checkpointQueue
-				.then(() =>
-					this.options.onCheckpointPart?.({ sessionId: this.recoveryId, index, blob: chunk }),
-				)
+				.then(async () => {
+					const checkpoint = this.options.onCheckpointPart?.({
+						sessionId: this.recoveryId,
+						index,
+						blob: chunk,
+					});
+					await Promise.resolve();
+					return checkpoint;
+				})
 				.catch((error) => {
 					this.checkpointError = error;
 					this.requestStop(generation);

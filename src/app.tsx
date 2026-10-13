@@ -494,9 +494,9 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 	}, [closeMobileAdd]);
 
 	useEffect(() => {
-		if (!mobileControlsOpen) return;
+		if (!mobileControlsOpen) return undefined;
 		const ownerDocument = mobileControlsPopover.current?.ownerDocument;
-		if (!ownerDocument) return;
+		if (!ownerDocument) return undefined;
 
 		mobileControlsPopover.current
 			?.querySelector<HTMLElement>("button:not(:disabled), select:not(:disabled)")
@@ -528,9 +528,9 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 	}, [closeMobileControls, mobileControlsOpen]);
 
 	useEffect(() => {
-		if (!mobileFiltersOpen) return;
+		if (!mobileFiltersOpen) return undefined;
 		const ownerDocument = mobileFiltersPopover.current?.ownerDocument;
-		if (!ownerDocument) return;
+		if (!ownerDocument) return undefined;
 		mobileFiltersPopover.current?.querySelector<HTMLElement>("select")?.focus();
 		const handleKeyDown = (event: EscapeKeyEvent) => {
 			if (event.key !== "Escape") return;
@@ -556,9 +556,9 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 	}, [closeMobileFilters, mobileFiltersOpen]);
 
 	useEffect(() => {
-		if (rowMenuItemId === null || rowMenuItemId === "") return;
+		if (rowMenuItemId === null || rowMenuItemId === "") return undefined;
 		const ownerDocument = rowMenuPopover.current?.ownerDocument;
-		if (!ownerDocument) return;
+		if (!ownerDocument) return undefined;
 		rowMenuPopover.current?.querySelector<HTMLElement>("button:not(:disabled)")?.focus();
 		const handleKeyDown = (event: EscapeKeyEvent) => {
 			if (event.key !== "Escape") return;

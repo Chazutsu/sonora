@@ -27,5 +27,7 @@ export function enqueueVaultRename<File extends VaultPathFile>(
 	onRename: (path: string, oldPath: string, file: File | null) => void | Promise<void>,
 ) {
 	const { path } = eventFile;
-	return queue.enqueue({ type: "rename", path }, () => onRename(path, oldPath, resolve(path)));
+	return queue.enqueue({ type: "rename", path }, async () => {
+		await onRename(path, oldPath, resolve(path));
+	});
 }

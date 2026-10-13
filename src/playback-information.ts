@@ -6,8 +6,7 @@ export function continueListening<Item extends ReadonlyQueueItem>(
 ): Item[] {
 	return queue
 		.filter(
-			(item) =>
-				item.completed !== true && item.unavailable !== true && item.lastPlayedAt !== undefined,
+			(item) => !item.completed && item.unavailable !== true && item.lastPlayedAt !== undefined,
 		)
 		.toSorted((left, right) => (right.lastPlayedAt ?? 0) - (left.lastPlayedAt ?? 0))
 		.slice(0, Math.max(0, limit));

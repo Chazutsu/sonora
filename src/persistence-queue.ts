@@ -9,7 +9,7 @@ export interface PersistenceQueueOptions {
 export class PersistenceQueue<T> {
 	private latest: { snapshot: T; revision: number } | undefined;
 	private nextRevision = 0;
-	private criticalWaiters = new Map<number, (durable: boolean) => void>();
+	private readonly criticalWaiters = new Map<number, (durable: boolean) => void>();
 	private running = false;
 	private disposed = false;
 	private disposeRequested = false;
@@ -35,13 +35,16 @@ export class PersistenceQueue<T> {
 		return this.disposed;
 	}
 
-	save(snapshot: T): Promise<void> {
-		if (this.disposed || this.disposeRequested) return Promise.resolve();
+	async save(snapshot: T): Promise<void> {
+		if (this.disposed || this.disposeRequested) {
+			await Promise.resolve();
+			return;
+		}
 		this.enqueue(snapshot);
 		this.dirtyState = true;
 		this.ensureIdlePromise();
 		this.start();
-		return this.idlePromise;
+		await this.idlePromise;
 	}
 
 	/**
@@ -59,20 +62,22 @@ export class PersistenceQueue<T> {
 		this.dirtyState = true;
 		this.ensureIdlePromise();
 		this.start();
-		return result;
+		const durable = await result;
+		return durable;
 	}
 
-	retry(): Promise<void> {
+	async retry(): Promise<void> {
 		if (this.disposed || this.disposeRequested || !this.dirtyState || this.latest === undefined) {
-			return Promise.resolve();
+			await Promise.resolve();
+			return;
 		}
 		this.ensureIdlePromise();
 		this.start();
-		return this.idlePromise;
+		await this.idlePromise;
 	}
 
-	whenIdle(): Promise<void> {
-		return this.idlePromise;
+	async whenIdle(): Promise<void> {
+		await this.idlePromise;
 	}
 
 	dispose(): void {

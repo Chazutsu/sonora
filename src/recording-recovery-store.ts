@@ -94,8 +94,8 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 		this.maxPendingSessions = options.maxPendingSessions ?? 20;
 		this.maxPendingBytes = options.maxPendingBytes ?? 128 * 1024 * 1024;
 	}
-	begin(input: RecordingCheckpointStart<Context>): Promise<void> {
-		return this.serial(async () => {
+	async begin(input: RecordingCheckpointStart<Context>): Promise<void> {
+		const operation = this.serial(async () => {
 			await this.gcEmptyOrphans();
 			await this.assertCapacity(0, true);
 			await this.options.ensureFolder(this.sessionDirectory(input.sessionId));
@@ -114,9 +114,11 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 				nextChunkIndex: 0,
 			});
 		});
+		await Promise.resolve();
+		return operation;
 	}
-	append(input: Readonly<RecordingCheckpointPart>): Promise<void> {
-		return this.serial(async () => {
+	async append(input: Readonly<RecordingCheckpointPart>): Promise<void> {
+		const operation = this.serial(async () => {
 			await this.assertCapacity(input.blob.size, false);
 			const manifest = await this.adoptUncommittedParts(input.sessionId);
 			if (manifest.state !== "active") throw new Error("Recording recovery session is finalized");
@@ -151,9 +153,11 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 				],
 			});
 		});
+		await Promise.resolve();
+		return operation;
 	}
-	markReady(payload: Readonly<RecordingPayload<Context>>): Promise<void> {
-		return this.serial(async () => {
+	async markReady(payload: Readonly<RecordingPayload<Context>>): Promise<void> {
+		const operation = this.serial(async () => {
 			const manifest = await this.adoptUncommittedParts(payload.recoveryId);
 			await this.writeManifest({
 				...manifest,
@@ -164,9 +168,11 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 				limit: payload.limit,
 			});
 		});
+		await Promise.resolve();
+		return operation;
 	}
-	remove(sessionId: string): Promise<void> {
-		return this.serial(async () => {
+	async remove(sessionId: string): Promise<void> {
+		const operation = this.serial(async () => {
 			const directory = this.sessionDirectory(sessionId);
 			const inventory = await this.options.adapter.list(directory);
 			for (const file of inventory.files) await this.options.adapter.remove(file);
@@ -180,6 +186,8 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 			await this.options.adapter.rmdir?.(directory, false);
 			this.claimEpochs.delete(sessionId);
 		});
+		await Promise.resolve();
+		return operation;
 	}
 	async recover(): Promise<ReadonlyArray<Readonly<RecordingPayload<Context>>>> {
 		if (!(await this.options.adapter.exists(this.options.root))) return [];
@@ -213,7 +221,7 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 				const blob = new Blob(chunks, { type: manifest.mimeType });
 				recovered.push(
 					Object.freeze({
-						context: Object.freeze({ ...manifest.context }) as Context,
+						context: Object.freeze({ ...manifest.context }),
 						blob,
 						mimeType: manifest.mimeType,
 						size: blob.size,
@@ -263,12 +271,13 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 			window.clearInterval(timer);
 		}
 	}
-	private serial<T>(operation: () => Promise<T>): Promise<T> {
+	private async serial<T>(operation: () => Promise<T>): Promise<T> {
 		const result = this.operation.then(operation);
 		this.operation = result.then(
 			() => undefined,
 			() => undefined,
 		);
+		await Promise.resolve();
 		return result;
 	}
 	private sessionDirectory(sessionId: string): string {
@@ -287,7 +296,7 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 		const directory = this.sessionDirectory(sessionId);
 		const valid: RecoveryManifest<Context>[] = [];
 		for (const path of (await this.options.adapter.list(directory)).files) {
-			const match = path.match(/\/manifest-(\d+)-[a-zA-Z0-9_-]+\.json$/u);
+			const match = /\/manifest-(\d+)-[a-zA-Z0-9_-]+\.json$/u.exec(path);
 			if (!match) continue;
 			try {
 				const parsed = JSON.parse(await this.options.adapter.read(path)) as Partial<
@@ -417,7 +426,11 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 		};
 		await this.options.adapter.write(this.ownClaimPath(manifest.sessionId), JSON.stringify(record));
 		await (
-			this.options.delay ?? ((ms) => new Promise((resolve) => window.setTimeout(resolve, ms)))
+			this.options.delay ??
+			(async (ms) => {
+				const delay = new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+				await delay;
+			})
 		)(this.options.claimSettleMs ?? 750);
 		const winner = await this.claimWinner(manifest.sessionId);
 		const won = winner?.installId === this.options.installId && winner.epoch === record.epoch;
