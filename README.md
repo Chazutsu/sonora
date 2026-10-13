@@ -29,6 +29,7 @@ Run **Sonora: Add active note as a vocabulary drill**. Sonora reads the term, wa
 The same episode model is intended to support generated connection podcasts later. AI generation is not included yet because a secure provider and credential boundary must be selected before implementation.
 
 Sonora uses the device speech-synthesis and recording APIs. It does not send note or audio content to an external service.
+Recording-recovery roots and the anonymous recovery installation ID are stored through Obsidian's vault-scoped storage. On first launch after upgrading, Sonora copies valid legacy browser-storage values into the current vault without deleting the legacy copy.
 
 ## Support
 

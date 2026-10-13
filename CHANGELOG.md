@@ -4,6 +4,10 @@ All notable changes to Sonora are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Scoped recording-recovery metadata to the active vault through Obsidian's storage API, with a one-time, non-destructive migration of valid legacy values.
+
 ## [0.1.2] - 2026-10-13
 
 ### Changed
