@@ -21,7 +21,9 @@ jobs:
         with:
           node-version: '24'
           cache: pnpm
-      - run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+      - run: |
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          git config --global --add url."https://github.com/".insteadOf "git@github.com:"
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm format:check
@@ -41,7 +43,9 @@ jobs:
         with:
           node-version: '24'
           cache: pnpm
-      - run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+      - run: |
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          git config --global --add url."https://github.com/".insteadOf "git@github.com:"
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install chromium
       - run: pnpm test:visual
