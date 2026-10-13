@@ -22,8 +22,8 @@
   },
   "dependencies": {
     "lucide-react": "^0.555.0",
-    "obsidian-plugin-kit": "git+https://github.com/Chazutsu/obsidian-plugin-kit.git#v0.1.0",
-    "virtual-obsidian": "git+https://github.com/Chazutsu/virtual-obsidian.git#v0.1.0",
+    "obsidian-plugin-kit": "https://github.com/Chazutsu/obsidian-plugin-kit/archive/refs/tags/v0.1.0.tar.gz",
+    "virtual-obsidian": "https://github.com/Chazutsu/virtual-obsidian/archive/refs/tags/v0.1.0.tar.gz",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

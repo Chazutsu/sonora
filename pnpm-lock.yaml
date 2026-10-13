@@ -12,8 +12,8 @@ importers:
         specifier: ^0.555.0
         version: 0.555.0(react@19.2.4)
       obsidian-plugin-kit:
-        specifier: git+https://github.com/Chazutsu/obsidian-plugin-kit.git#v0.1.0
-        version: git+ssh://git@github.com/Chazutsu/obsidian-plugin-kit.git#9832c1bbe946f0b8927d1fe80b77034a6eef1a7b(builtin-modules@5.4.0)(rolldown@1.0.0-rc.5(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3))
+        specifier: https://github.com/Chazutsu/obsidian-plugin-kit/archive/refs/tags/v0.1.0.tar.gz
+        version: https://codeload.github.com/Chazutsu/obsidian-plugin-kit/tar.gz/refs/tags/v0.1.0(builtin-modules@5.4.0)(rolldown@1.0.0-rc.5(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3))
       react:
         specifier: 19.2.4
         version: 19.2.4
@@ -21,8 +21,8 @@ importers:
         specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
       virtual-obsidian:
-        specifier: git+https://github.com/Chazutsu/virtual-obsidian.git#v0.1.0
-        version: git+ssh://git@github.com/Chazutsu/virtual-obsidian.git#d64bd0f32194370369c65c90c742c9449e65bcd2
+        specifier: https://github.com/Chazutsu/virtual-obsidian/archive/refs/tags/v0.1.0.tar.gz
+        version: https://codeload.github.com/Chazutsu/virtual-obsidian/tar.gz/refs/tags/v0.1.0
     devDependencies:
       '@playwright/test':
         specifier: 1.64.0
@@ -1418,9 +1418,10 @@ packages:
   node-addon-api@7.1.1:
     resolution: {integrity: sha512-5m3bsyrjFWE1xf7nz7YXdN4udnVtXK6/Yfgn5qnahL6bCkf2yKt4k3nuTKAtT4r3IG8JNR2ncsIMdZuAzJjHQQ==}
 
-  obsidian-plugin-kit@git+ssh://git@github.com/Chazutsu/obsidian-plugin-kit.git#9832c1bbe946f0b8927d1fe80b77034a6eef1a7b:
-    resolution: {commit: 9832c1bbe946f0b8927d1fe80b77034a6eef1a7b, repo: git+ssh://git@github.com/Chazutsu/obsidian-plugin-kit.git, type: git}
+  obsidian-plugin-kit@https://codeload.github.com/Chazutsu/obsidian-plugin-kit/tar.gz/refs/tags/v0.1.0:
+    resolution: {tarball: https://codeload.github.com/Chazutsu/obsidian-plugin-kit/tar.gz/refs/tags/v0.1.0}
     version: 0.1.0
+    engines: {node: '>=24'}
     peerDependencies:
       builtin-modules: '>=5'
       rolldown: '>=1.0.0-rc.5'
@@ -1609,9 +1610,10 @@ packages:
     resolution: {integrity: sha512-dkrQXeHSaoamnItlYbmzG0wFYrM0ZwDxCIg0A7aKjTyyhh9svRzCNFEzV+Vm05/yehjCzjDZ31KXfGEjYSztDQ==}
     engines: {node: '>=20.18.1'}
 
-  virtual-obsidian@git+ssh://git@github.com/Chazutsu/virtual-obsidian.git#d64bd0f32194370369c65c90c742c9449e65bcd2:
-    resolution: {commit: d64bd0f32194370369c65c90c742c9449e65bcd2, repo: git+ssh://git@github.com/Chazutsu/virtual-obsidian.git, type: git}
+  virtual-obsidian@https://codeload.github.com/Chazutsu/virtual-obsidian/tar.gz/refs/tags/v0.1.0:
+    resolution: {tarball: https://codeload.github.com/Chazutsu/virtual-obsidian/tar.gz/refs/tags/v0.1.0}
     version: 0.1.0
+    engines: {node: '>=24'}
 
   vite@7.3.7:
     resolution: {integrity: sha512-AHEzTORMbi7/7aXp7w7KZ5+DCUdSeLsJz0grY8xHpc9DHdYb0vQu6DqJfm2tOw3gDExNgPgnJTXxM6syYFHaCA==}
@@ -2712,7 +2714,7 @@ snapshots:
 
   node-addon-api@7.1.1: {}
 
-  obsidian-plugin-kit@git+ssh://git@github.com/Chazutsu/obsidian-plugin-kit.git#9832c1bbe946f0b8927d1fe80b77034a6eef1a7b(builtin-modules@5.4.0)(rolldown@1.0.0-rc.5(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)):
+  obsidian-plugin-kit@https://codeload.github.com/Chazutsu/obsidian-plugin-kit/tar.gz/refs/tags/v0.1.0(builtin-modules@5.4.0)(rolldown@1.0.0-rc.5(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)):
     dependencies:
       builtin-modules: 5.4.0
       rolldown: 1.0.0-rc.5(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)
@@ -2938,7 +2940,7 @@ snapshots:
 
   undici@7.30.0: {}
 
-  virtual-obsidian@git+ssh://git@github.com/Chazutsu/virtual-obsidian.git#d64bd0f32194370369c65c90c742c9449e65bcd2: {}
+  virtual-obsidian@https://codeload.github.com/Chazutsu/virtual-obsidian/tar.gz/refs/tags/v0.1.0: {}
 
   vite@7.3.7(jiti@2.7.0)(lightningcss@1.32.0):
     dependencies:
