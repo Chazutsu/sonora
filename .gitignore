@@ -1,0 +1,9 @@
+node_modules/
+.turbo/
+test-results/
+playwright-report/
+tests/visual/dist/
+.DS_Store
+*.log
+/main.js
+/styles.css

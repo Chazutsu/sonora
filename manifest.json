@@ -1,0 +1,9 @@
+{
+  "id": "sonora",
+  "name": "Sonora",
+  "version": "0.1.0",
+  "minAppVersion": "1.11.4",
+  "description": "Listen to, review, and respond to your notes without leaving your vault.",
+  "author": "ebataryou",
+  "isDesktopOnly": false
+}

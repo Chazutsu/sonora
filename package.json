@@ -1,0 +1,47 @@
+{
+  "name": "sonora",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.7.0",
+  "engines": { "node": ">=24" },
+  "description": "Listen to, review, and respond to your Obsidian notes",
+  "license": "MIT",
+  "repository": "github:Chazutsu/sonora",
+  "main": "main.js",
+  "scripts": {
+    "build": "BUILD=production rolldown -c && cp src/styles.css styles.css",
+    "build:visual": "rolldown -c rolldown.visual.config.ts && cp node_modules/virtual-obsidian/wasm-pkg/core_bg.wasm tests/visual/dist/core_bg.wasm",
+    "check:release": "pnpm build && node scripts/verify-release.mjs",
+    "test": "vitest run",
+    "test:visual": "pnpm build && pnpm build:visual && playwright test -c playwright.visual.config.ts",
+    "test:visual:update": "pnpm build && pnpm build:visual && playwright test -c playwright.visual.config.ts --update-snapshots",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src/ tests/",
+    "format": "oxfmt --write src/ tests/",
+    "format:check": "oxfmt --check src/ tests/"
+  },
+  "dependencies": {
+    "lucide-react": "^0.555.0",
+    "obsidian-plugin-kit": "git+https://github.com/Chazutsu/obsidian-plugin-kit.git#v0.1.0",
+    "virtual-obsidian": "git+https://github.com/Chazutsu/virtual-obsidian.git#v0.1.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@tailwindcss/cli": "4.2.0",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "builtin-modules": "^5.0.0",
+    "jsdom": "^28.1.0",
+    "obsidian": "1.14.4",
+    "oxfmt": "^0.33.0",
+    "oxlint": "^1.48.0",
+    "rolldown": "1.0.0-rc.5",
+    "tailwindcss": "4.2.0",
+    "typescript": "6.0.0-beta",
+    "vitest": "4.0.17"
+  }
+}

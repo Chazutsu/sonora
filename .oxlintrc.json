@@ -1,0 +1,23 @@
+{
+	"$schema": "../../node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "react", "import", "unicorn"],
+	"categories": {
+		"correctness": "error",
+		"suspicious": "warn"
+	},
+	"rules": {
+		"typescript/no-explicit-any": "error",
+		"no-new": "off",
+		"unicorn/no-empty-file": "off",
+		"react/react-in-jsx-scope": "off",
+		"no-unused-vars": "warn"
+	},
+	"ignorePatterns": [
+		"node_modules/",
+		"dist/",
+		"main.js",
+		"test-results/",
+		"tests/visual/dist/",
+		"tests/visual/test-results/"
+	]
+}
