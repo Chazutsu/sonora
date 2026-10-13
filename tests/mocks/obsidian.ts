@@ -18,6 +18,7 @@ export class Plugin {
 }
 export class PluginSettingTab {
 	readonly __mockPluginSettingTab = true;
+	update() {}
 }
 export class Setting {
 	readonly __mockSetting = true;
