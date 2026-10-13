@@ -167,7 +167,13 @@ function QueuePanel({
 		const next = sections.following[index + 1];
 		return (
 			<li key={item.id} className="sonora-queue-row">
-				<button type="button" className="sonora-queue-play" onClick={() => onPlay(item.id)}>
+				<button
+					type="button"
+					className="sonora-queue-play"
+					onClick={() => {
+						onPlay(item.id);
+					}}
+				>
 					<span className="sonora-queue-art">
 						{item.coverUrl ? (
 							<img src={item.coverUrl} alt="" />
@@ -183,14 +189,21 @@ function QueuePanel({
 				<span className="sonora-queue-status">{status}</span>
 				{actions ? (
 					<div className="sonora-queue-actions" aria-label={copy.queueOrderActions}>
-						<button type="button" onClick={() => onSetNext(item.id)}>
+						<button
+							type="button"
+							onClick={() => {
+								onSetNext(item.id);
+							}}
+						>
 							{copy.upNext}
 						</button>
 						<button
 							type="button"
 							disabled={!previous}
 							aria-label={`${copy.moveUp} ${item.title}`}
-							onClick={() => previous && onMove(item.id, previous.id, "before", "up")}
+							onClick={() => {
+								if (previous) onMove(item.id, previous.id, "before", "up");
+							}}
 						>
 							<ChevronLeft size={16} />
 						</button>
@@ -198,7 +211,9 @@ function QueuePanel({
 							type="button"
 							disabled={!next}
 							aria-label={`${copy.moveDown} ${item.title}`}
-							onClick={() => next && onMove(item.id, next.id, "after", "down")}
+							onClick={() => {
+								if (next) onMove(item.id, next.id, "after", "down");
+							}}
 						>
 							<ChevronRight size={16} />
 						</button>
@@ -396,10 +411,14 @@ export function SonoraApp(props: SonoraAppProps) {
 	useEffect(() => {
 		if (!window.matchMedia) return;
 		const query = window.matchMedia("(min-width: 761px) and (pointer: fine)");
-		const update = () => setDesktopDnDEnabled(query.matches);
+		const update = () => {
+			setDesktopDnDEnabled(query.matches);
+		};
 		update();
 		query.addEventListener?.("change", update);
-		return () => query.removeEventListener?.("change", update);
+		return () => {
+			query.removeEventListener?.("change", update);
+		};
 	}, []);
 
 	useEffect(() => {
@@ -593,7 +612,9 @@ export function SonoraApp(props: SonoraAppProps) {
 					<button
 						className={filter === "all" ? "is-active" : ""}
 						aria-pressed={filter === "all"}
-						onClick={() => changeFilter("all")}
+						onClick={() => {
+							changeFilter("all");
+						}}
 					>
 						<ListMusic size={18} />
 						<span>{props.copy.home}</span>
@@ -602,7 +623,9 @@ export function SonoraApp(props: SonoraAppProps) {
 					<button
 						className={filter === "notes" ? "is-active" : ""}
 						aria-pressed={filter === "notes"}
-						onClick={() => changeFilter("notes")}
+						onClick={() => {
+							changeFilter("notes");
+						}}
 					>
 						<FileAudio size={18} />
 						<span>{props.copy.notes}</span>
@@ -611,7 +634,9 @@ export function SonoraApp(props: SonoraAppProps) {
 					<button
 						className={filter === "drills" ? "is-active" : ""}
 						aria-pressed={filter === "drills"}
-						onClick={() => changeFilter("drills")}
+						onClick={() => {
+							changeFilter("drills");
+						}}
 					>
 						<Languages size={18} />
 						<span>{props.copy.languageDrills}</span>
@@ -628,7 +653,13 @@ export function SonoraApp(props: SonoraAppProps) {
 				{props.playbackError && (
 					<div className="sonora-error" role="alert">
 						{props.playbackError}
-						<button onClick={() => active && props.onRestart(active.id)}>{props.copy.retry}</button>
+						<button
+							onClick={() => {
+								if (active) props.onRestart(active.id);
+							}}
+						>
+							{props.copy.retry}
+						</button>
 					</div>
 				)}
 				<header className="sonora-content-header">
@@ -750,7 +781,9 @@ export function SonoraApp(props: SonoraAppProps) {
 							void moveItem(id, targetId, placement, direction)
 						}
 						onPlay={props.onPlayPause}
-						onSetNext={(id) => props.onSetUpNext(id)}
+						onSetNext={(id) => {
+							props.onSetUpNext(id);
+						}}
 					/>
 				) : (
 					<>
@@ -772,7 +805,9 @@ export function SonoraApp(props: SonoraAppProps) {
 											<button
 												key={item.id}
 												type="button"
-												onClick={() => props.onPlayPause(item.id)}
+												onClick={() => {
+													props.onPlayPause(item.id);
+												}}
 												aria-label={actionLabel
 													.replace("{title}", item.title)
 													.replace("{chapter}", current?.heading ?? props.copy.readyToPlay)}
@@ -802,7 +837,9 @@ export function SonoraApp(props: SonoraAppProps) {
 								<header>
 									<button
 										type="button"
-										onClick={() => setDetailItemId(null)}
+										onClick={() => {
+											setDetailItemId(null);
+										}}
 										aria-label={props.copy.backToLibrary}
 									>
 										<ChevronLeft size={18} />
@@ -833,7 +870,9 @@ export function SonoraApp(props: SonoraAppProps) {
 												</span>
 												<button
 													type="button"
-													onClick={() => props.onPlayChapter(detailItem.id, index)}
+													onClick={() => {
+														props.onPlayChapter(detailItem.id, index);
+													}}
 												>
 													<strong>{detailChapter.heading}</strong>
 													<small>
@@ -847,7 +886,9 @@ export function SonoraApp(props: SonoraAppProps) {
 												<button
 													type="button"
 													className="sonora-chapter-play"
-													onClick={() => props.onPlayChapter(detailItem.id, index)}
+													onClick={() => {
+														props.onPlayChapter(detailItem.id, index);
+													}}
 													aria-label={label}
 												>
 													<Play size={16} fill="currentColor" />
@@ -898,7 +939,9 @@ export function SonoraApp(props: SonoraAppProps) {
 											type="search"
 											placeholder={props.copy.searchPlaceholder}
 											value={libraryQuery}
-											onChange={(event) => setLibraryQuery(event.target.value)}
+											onChange={(event) => {
+												setLibraryQuery(event.target.value);
+											}}
 										/>
 									</label>
 									<button
@@ -908,9 +951,10 @@ export function SonoraApp(props: SonoraAppProps) {
 										aria-expanded={mobileFiltersOpen}
 										aria-controls={mobileFiltersId}
 										aria-haspopup="dialog"
-										onClick={() =>
-											mobileFiltersOpen ? closeMobileFilters(true) : setMobileFiltersOpen(true)
-										}
+										onClick={() => {
+											if (mobileFiltersOpen) closeMobileFilters(true);
+											else setMobileFiltersOpen(true);
+										}}
 									>
 										<SlidersHorizontal size={17} />
 										{props.copy.filterAndSort}
@@ -927,7 +971,9 @@ export function SonoraApp(props: SonoraAppProps) {
 										<select
 											aria-label={props.copy.statusFilter}
 											value={libraryStatus}
-											onChange={(event) => setLibraryStatus(event.target.value as LibraryStatus)}
+											onChange={(event) => {
+												setLibraryStatus(event.target.value as LibraryStatus);
+											}}
 										>
 											<option value="all">{props.copy.statusAll}</option>
 											<option value="unplayed">{props.copy.statusUnplayed}</option>
@@ -937,7 +983,9 @@ export function SonoraApp(props: SonoraAppProps) {
 										<select
 											aria-label={props.copy.sortLibrary}
 											value={librarySort}
-											onChange={(event) => setLibrarySort(event.target.value as LibrarySort)}
+											onChange={(event) => {
+												setLibrarySort(event.target.value as LibrarySort);
+											}}
 										>
 											<option value="manual">{props.copy.sortManual}</option>
 											<option value="recent">{props.copy.sortRecent}</option>
@@ -978,7 +1026,9 @@ export function SonoraApp(props: SonoraAppProps) {
 													event.dataTransfer.effectAllowed = "move";
 													event.dataTransfer.setData("text/plain", item.id);
 												}}
-												onDragEnd={() => setDraggedItemId(null)}
+												onDragEnd={() => {
+													setDraggedItemId(null);
+												}}
 												onDragOver={(event) => {
 													if (draggedItemId && draggedItemId !== item.id) event.preventDefault();
 												}}
@@ -1000,11 +1050,10 @@ export function SonoraApp(props: SonoraAppProps) {
 													className="sonora-row-main"
 													tabIndex={-1}
 													aria-current={isActive ? "true" : undefined}
-													onClick={() =>
-														chapterMatch
-															? props.onSelectChapter(item.id, chapterMatch.index)
-															: props.onSelect(item.id)
-													}
+													onClick={() => {
+														if (chapterMatch) props.onSelectChapter(item.id, chapterMatch.index);
+														else props.onSelect(item.id);
+													}}
 												>
 													<button
 														type="button"
@@ -1076,16 +1125,18 @@ export function SonoraApp(props: SonoraAppProps) {
 													title={props.copy.playNext.replace("{title}", item.title)}
 													aria-pressed={item.id === upNext?.id}
 													disabled={isActive || item.completed}
-													onClick={() => props.onSetUpNext(item.id === upNext?.id ? null : item.id)}
+													onClick={() => {
+														props.onSetUpNext(item.id === upNext?.id ? null : item.id);
+													}}
 												>
 													<ListEnd size={16} />
 													<span>{props.copy.upNext}</span>
 												</button>
 												<button
 													className="sonora-row-remove"
-													onClick={(event) =>
-														props.onRemove(item.id, event.detail === 0, nextVisibleItemId)
-													}
+													onClick={(event) => {
+														props.onRemove(item.id, event.detail === 0, nextVisibleItemId);
+													}}
 													aria-label={`${props.copy.remove} ${item.title}`}
 												>
 													<Trash2 size={16} />
@@ -1185,7 +1236,9 @@ export function SonoraApp(props: SonoraAppProps) {
 						</div>
 						<button
 							type="button"
-							onClick={() => setPlayerExpanded(false)}
+							onClick={() => {
+								setPlayerExpanded(false);
+							}}
 							aria-label={props.copy.closeNowPlaying}
 						>
 							<X size={20} />
@@ -1194,7 +1247,9 @@ export function SonoraApp(props: SonoraAppProps) {
 					<div className="sonora-expanded-controls">
 						<button
 							type="button"
-							onClick={() => props.onPrevious(active.id)}
+							onClick={() => {
+								props.onPrevious(active.id);
+							}}
 							aria-label={props.copy.previous}
 						>
 							<ChevronLeft size={24} />
@@ -1202,7 +1257,9 @@ export function SonoraApp(props: SonoraAppProps) {
 						<button
 							type="button"
 							className="is-primary"
-							onClick={() => props.onPlayPause(active.id)}
+							onClick={() => {
+								props.onPlayPause(active.id);
+							}}
 							aria-label={props.playerState === "playing" ? props.copy.pause : props.copy.play}
 						>
 							{props.playerState === "playing" ? (
@@ -1213,7 +1270,9 @@ export function SonoraApp(props: SonoraAppProps) {
 						</button>
 						<button
 							type="button"
-							onClick={() => props.onNext(active.id)}
+							onClick={() => {
+								props.onNext(active.id);
+							}}
 							aria-label={props.copy.next}
 						>
 							<ChevronRight size={24} />
@@ -1228,7 +1287,12 @@ export function SonoraApp(props: SonoraAppProps) {
 							<ol>
 								{expandedQueue.map((item) => (
 									<li key={item.id}>
-										<button type="button" onClick={() => props.onPlayPause(item.id)}>
+										<button
+											type="button"
+											onClick={() => {
+												props.onPlayPause(item.id);
+											}}
+										>
 											<strong>{item.chapters[item.chapterIndex]?.heading ?? item.title}</strong>
 											<small>{item.title}</small>
 										</button>
@@ -1242,7 +1306,9 @@ export function SonoraApp(props: SonoraAppProps) {
 					<button
 						type="button"
 						className="sonora-expanded-source"
-						onClick={() => props.onOpenSource(active.id)}
+						onClick={() => {
+							props.onOpenSource(active.id);
+						}}
 					>
 						{props.copy.openSource}
 					</button>
@@ -1267,7 +1333,9 @@ export function SonoraApp(props: SonoraAppProps) {
 										<button
 											type="button"
 											disabled={props.recordingRequesting}
-											onClick={() => props.onToggleRecording(active.id)}
+											onClick={() => {
+												props.onToggleRecording(active.id);
+											}}
 										>
 											{props.recordingRequesting
 												? props.copy.recordingRequesting
@@ -1288,7 +1356,9 @@ export function SonoraApp(props: SonoraAppProps) {
 						<div className="sonora-player-track-shell">
 							<button
 								className="sonora-player-track"
-								onClick={() => setPlayerExpanded(true)}
+								onClick={() => {
+									setPlayerExpanded(true);
+								}}
 								aria-expanded={playerExpanded}
 							>
 								<span className={`sonora-player-art ${active.kind === "drill" ? "is-drill" : ""}`}>
@@ -1311,7 +1381,9 @@ export function SonoraApp(props: SonoraAppProps) {
 									<strong>{upNext.title}</strong>
 									<button
 										type="button"
-										onClick={() => props.onSetUpNext(null)}
+										onClick={() => {
+											props.onSetUpNext(null);
+										}}
 										aria-label={props.copy.clearUpNext}
 									>
 										<X size={14} />
@@ -1324,7 +1396,9 @@ export function SonoraApp(props: SonoraAppProps) {
 								{active.kind === "drill" && (
 									<button
 										className={`sonora-control-loop ${active.loop ? "is-on" : ""}`}
-										onClick={() => props.onToggleLoop(active.id)}
+										onClick={() => {
+											props.onToggleLoop(active.id);
+										}}
 										aria-label={props.copy.loop}
 										aria-pressed={active.loop === true}
 									>
@@ -1333,14 +1407,18 @@ export function SonoraApp(props: SonoraAppProps) {
 								)}
 								<button
 									className="sonora-player-previous"
-									onClick={() => props.onPrevious(active.id)}
+									onClick={() => {
+										props.onPrevious(active.id);
+									}}
 									aria-label={props.copy.previous}
 								>
 									<ChevronLeft size={21} />
 								</button>
 								<button
 									className="sonora-player-play"
-									onClick={() => props.onPlayPause(active.id)}
+									onClick={() => {
+										props.onPlayPause(active.id);
+									}}
 									aria-label={props.playerState === "playing" ? props.copy.pause : props.copy.play}
 								>
 									{props.playerState === "playing" ? (
@@ -1351,14 +1429,18 @@ export function SonoraApp(props: SonoraAppProps) {
 								</button>
 								<button
 									className="sonora-player-next"
-									onClick={() => props.onNext(active.id)}
+									onClick={() => {
+										props.onNext(active.id);
+									}}
 									aria-label={props.copy.next}
 								>
 									<ChevronRight size={21} />
 								</button>
 								<button
 									className="sonora-control-restart"
-									onClick={() => props.onRestart(active.id)}
+									onClick={() => {
+										props.onRestart(active.id);
+									}}
 									aria-label={props.copy.restart}
 								>
 									<RotateCcw size={16} />
@@ -1388,7 +1470,9 @@ export function SonoraApp(props: SonoraAppProps) {
 							<select
 								aria-label={props.copy.speed}
 								value={props.settings.rate}
-								onChange={(event) => props.onRateChange(Number(event.target.value))}
+								onChange={(event) => {
+									props.onRateChange(Number(event.target.value));
+								}}
 							>
 								{[0.75, 1, 1.25, 1.5, 1.75, 2].map((rate) => (
 									<option key={rate} value={rate}>
@@ -1398,7 +1482,9 @@ export function SonoraApp(props: SonoraAppProps) {
 							</select>
 							<button
 								className={`sonora-record ${props.recording ? "is-recording" : ""}`}
-								onClick={() => props.onToggleRecording(active.id)}
+								onClick={() => {
+									props.onToggleRecording(active.id);
+								}}
 								disabled={props.recordingRequesting}
 								aria-busy={props.recordingRequesting}
 							>
@@ -1407,7 +1493,9 @@ export function SonoraApp(props: SonoraAppProps) {
 							</button>
 							<button
 								className="sonora-complete"
-								onClick={() => props.onComplete(active.id)}
+								onClick={() => {
+									props.onComplete(active.id);
+								}}
 								aria-label={props.copy.markListened}
 								disabled={active.completed}
 							>
@@ -1442,14 +1530,20 @@ export function SonoraApp(props: SonoraAppProps) {
 								{active.kind === "drill" && (
 									<button
 										className={active.loop ? "is-on" : ""}
-										onClick={() => props.onToggleLoop(active.id)}
+										onClick={() => {
+											props.onToggleLoop(active.id);
+										}}
 										aria-pressed={active.loop === true}
 									>
 										<RotateCcw size={18} />
 										{props.copy.loop}
 									</button>
 								)}
-								<button onClick={() => props.onRestart(active.id)}>
+								<button
+									onClick={() => {
+										props.onRestart(active.id);
+									}}
+								>
 									<RotateCcw size={18} />
 									{props.copy.restartShort}
 								</button>
@@ -1457,7 +1551,9 @@ export function SonoraApp(props: SonoraAppProps) {
 									<span>{props.copy.speed}</span>
 									<select
 										value={props.settings.rate}
-										onChange={(event) => props.onRateChange(Number(event.target.value))}
+										onChange={(event) => {
+											props.onRateChange(Number(event.target.value));
+										}}
 									>
 										{[0.75, 1, 1.25, 1.5, 1.75, 2].map((rate) => (
 											<option key={rate} value={rate}>
@@ -1468,19 +1564,30 @@ export function SonoraApp(props: SonoraAppProps) {
 								</label>
 								<button
 									className={props.recording ? "is-recording" : ""}
-									onClick={() => props.onToggleRecording(active.id)}
+									onClick={() => {
+										props.onToggleRecording(active.id);
+									}}
 									disabled={props.recordingRequesting}
 									aria-busy={props.recordingRequesting}
 								>
 									{props.recording ? <Square size={17} fill="currentColor" /> : <Mic size={18} />}
 									{props.recording ? props.copy.saveResponse : props.copy.recordResponse}
 								</button>
-								<button onClick={() => props.onComplete(active.id)} disabled={active.completed}>
+								<button
+									onClick={() => {
+										props.onComplete(active.id);
+									}}
+									disabled={active.completed}
+								>
 									<Check size={18} />
 									{props.copy.markListened}
 								</button>
 								{upNext && (
-									<button onClick={() => props.onSetUpNext(null)}>
+									<button
+										onClick={() => {
+											props.onSetUpNext(null);
+										}}
+									>
 										<ListEnd size={18} />
 										{props.copy.upNext}: {upNext.title}
 									</button>

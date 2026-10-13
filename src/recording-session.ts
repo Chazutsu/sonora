@@ -154,9 +154,13 @@ export class RecordingSession<Context extends Readonly<Record<string, unknown>>>
 				outputPath: this.outputPath,
 			});
 
-			this.dataListener = (event) => this.receiveChunk(generation, event.data);
+			this.dataListener = (event) => {
+				this.receiveChunk(generation, event.data);
+			};
 			this.stopListener = () => void this.finish(generation);
-			this.errorListener = (event) => this.fail(generation, event.error ?? event, "recording");
+			this.errorListener = (event) => {
+				this.fail(generation, event.error ?? event, "recording");
+			};
 			recorder.addEventListener("dataavailable", this.dataListener);
 			recorder.addEventListener("stop", this.stopListener);
 			recorder.addEventListener("error", this.errorListener);
