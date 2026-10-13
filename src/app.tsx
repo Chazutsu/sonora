@@ -74,7 +74,9 @@ function handleMobileControlsKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) 
 	const controls = Array.from(
 		event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
 	);
-	const current = controls.indexOf(document.activeElement as HTMLButtonElement);
+	const current = controls.indexOf(
+		event.currentTarget.ownerDocument.activeElement as HTMLButtonElement,
+	);
 	const next =
 		event.key === "ArrowDown"
 			? (current + 1 + controls.length) % controls.length
@@ -435,6 +437,8 @@ export function SonoraApp(props: SonoraAppProps) {
 	}, []);
 
 	useEffect(() => {
+		const ownerDocument = mobileAdd.current?.ownerDocument;
+		if (!ownerDocument) return () => undefined;
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if (event.key !== "Escape" || !mobileAdd.current?.open) return;
 			event.preventDefault();
@@ -445,16 +449,18 @@ export function SonoraApp(props: SonoraAppProps) {
 			closeMobileAdd(true);
 		};
 
-		document.addEventListener("keydown", handleKeyDown);
-		document.addEventListener("pointerdown", handlePointerDown);
+		ownerDocument.addEventListener("keydown", handleKeyDown);
+		ownerDocument.addEventListener("pointerdown", handlePointerDown);
 		return () => {
-			document.removeEventListener("keydown", handleKeyDown);
-			document.removeEventListener("pointerdown", handlePointerDown);
+			ownerDocument.removeEventListener("keydown", handleKeyDown);
+			ownerDocument.removeEventListener("pointerdown", handlePointerDown);
 		};
 	}, [closeMobileAdd]);
 
 	useEffect(() => {
 		if (!mobileControlsOpen) return;
+		const ownerDocument = mobileControlsPopover.current?.ownerDocument;
+		if (!ownerDocument) return;
 
 		mobileControlsPopover.current
 			?.querySelector<HTMLElement>("button:not(:disabled), select:not(:disabled)")
@@ -477,16 +483,18 @@ export function SonoraApp(props: SonoraAppProps) {
 			closeMobileControls(false);
 		};
 
-		document.addEventListener("keydown", handleKeyDown);
-		document.addEventListener("pointerdown", handlePointerDown);
+		ownerDocument.addEventListener("keydown", handleKeyDown);
+		ownerDocument.addEventListener("pointerdown", handlePointerDown);
 		return () => {
-			document.removeEventListener("keydown", handleKeyDown);
-			document.removeEventListener("pointerdown", handlePointerDown);
+			ownerDocument.removeEventListener("keydown", handleKeyDown);
+			ownerDocument.removeEventListener("pointerdown", handlePointerDown);
 		};
 	}, [closeMobileControls, mobileControlsOpen]);
 
 	useEffect(() => {
 		if (!mobileFiltersOpen) return;
+		const ownerDocument = mobileFiltersPopover.current?.ownerDocument;
+		if (!ownerDocument) return;
 		mobileFiltersPopover.current?.querySelector<HTMLElement>("select")?.focus();
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if (event.key !== "Escape") return;
@@ -503,16 +511,18 @@ export function SonoraApp(props: SonoraAppProps) {
 				return;
 			closeMobileFilters(false);
 		};
-		document.addEventListener("keydown", handleKeyDown);
-		document.addEventListener("pointerdown", handlePointerDown);
+		ownerDocument.addEventListener("keydown", handleKeyDown);
+		ownerDocument.addEventListener("pointerdown", handlePointerDown);
 		return () => {
-			document.removeEventListener("keydown", handleKeyDown);
-			document.removeEventListener("pointerdown", handlePointerDown);
+			ownerDocument.removeEventListener("keydown", handleKeyDown);
+			ownerDocument.removeEventListener("pointerdown", handlePointerDown);
 		};
 	}, [closeMobileFilters, mobileFiltersOpen]);
 
 	useEffect(() => {
 		if (!rowMenuItemId) return;
+		const ownerDocument = rowMenuPopover.current?.ownerDocument;
+		if (!ownerDocument) return;
 		rowMenuPopover.current?.querySelector<HTMLElement>("button:not(:disabled)")?.focus();
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if (event.key !== "Escape") return;
@@ -526,11 +536,11 @@ export function SonoraApp(props: SonoraAppProps) {
 				return;
 			closeRowMenu(false);
 		};
-		document.addEventListener("keydown", handleKeyDown);
-		document.addEventListener("pointerdown", handlePointerDown);
+		ownerDocument.addEventListener("keydown", handleKeyDown);
+		ownerDocument.addEventListener("pointerdown", handlePointerDown);
 		return () => {
-			document.removeEventListener("keydown", handleKeyDown);
-			document.removeEventListener("pointerdown", handlePointerDown);
+			ownerDocument.removeEventListener("keydown", handleKeyDown);
+			ownerDocument.removeEventListener("pointerdown", handlePointerDown);
 		};
 	}, [closeRowMenu, rowMenuItemId]);
 
