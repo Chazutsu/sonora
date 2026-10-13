@@ -1,25 +1,32 @@
 import type { QueueItem } from "./types";
 
-export function continueListening(queue: readonly QueueItem[], limit = 4): QueueItem[] {
+type ReadonlyQueueItem = Omit<Readonly<QueueItem>, "chapters"> & {
+	readonly chapters: readonly Readonly<QueueItem["chapters"][number]>[];
+};
+
+export function continueListening<Item extends ReadonlyQueueItem>(
+	queue: readonly Item[],
+	limit = 4,
+): Item[] {
 	return queue
 		.filter((item) => !item.completed && !item.unavailable && item.lastPlayedAt !== undefined)
 		.toSorted((left, right) => (right.lastPlayedAt ?? 0) - (left.lastPlayedAt ?? 0))
 		.slice(0, Math.max(0, limit));
 }
 
-export type QueueSections = {
-	current: QueueItem | null;
-	next: QueueItem | null;
-	following: QueueItem[];
-	history: QueueItem[];
+export type QueueSections<Item extends ReadonlyQueueItem = QueueItem> = {
+	current: Item | null;
+	next: Item | null;
+	following: Item[];
+	history: Item[];
 };
 
 /** Derives the listening order without mutating the persisted manual queue. */
-export function queueSections(
-	queue: readonly QueueItem[],
+export function queueSections<Item extends ReadonlyQueueItem>(
+	queue: readonly Item[],
 	activeItemId: string | null,
 	upNextItemId: string | null,
-): QueueSections {
+): QueueSections<Item> {
 	const playable = queue.filter((item) => !item.unavailable && !item.loadError);
 	const current = playable.find((item) => item.id === activeItemId) ?? null;
 	const unfinished = playable.filter((item) => !item.completed && item.id !== current?.id);
