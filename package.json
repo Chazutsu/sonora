@@ -17,6 +17,7 @@
   "main": "main.js",
   "scripts": {
     "build": "BUILD=production rolldown -c && cp src/styles.css styles.css",
+    "check:toolchain": "node scripts/check-toolchain-compat.mjs",
     "build:visual": "rolldown -c rolldown.visual.config.ts && cp node_modules/virtual-obsidian/wasm-pkg/core_bg.wasm tests/visual/dist/core_bg.wasm",
     "check:release": "pnpm build && node scripts/verify-release.mjs",
     "test": "vitest run",
