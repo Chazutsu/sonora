@@ -24,6 +24,7 @@
     "test:visual:update": "pnpm build && pnpm build:visual && playwright test -c playwright.visual.config.ts --update-snapshots",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src/ tests/",
+    "check:obsidian": "eslint src/",
     "format": "oxfmt --write src/ tests/",
     "format:check": "oxfmt --check src/ tests/"
   },
@@ -41,6 +42,8 @@
     "@testing-library/react": "16.3.2",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "eslint": "9.39.5",
+    "eslint-plugin-obsidianmd": "0.4.2",
     "jsdom": "^28.1.0",
     "obsidian": "1.14.4",
     "oxfmt": "0.34.0",
@@ -48,6 +51,7 @@
     "rolldown": "1.0.0-rc.5",
     "tailwindcss": "4.2.0",
     "typescript": "6.0.0-beta",
+    "typescript-eslint": "8.71.2",
     "vitest": "4.1.11"
   }
 }
