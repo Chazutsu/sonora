@@ -12,7 +12,9 @@ export interface StaleFileRefresh {
 }
 
 export type FileRefreshResult<T> = CurrentFileRefresh<T> | StaleFileRefresh;
-export type FileRefreshConsumer<T> = (refresh: CurrentFileRefresh<T>) => void | Promise<void>;
+export type FileRefreshConsumer<T> = (
+	refresh: Readonly<CurrentFileRefresh<T>>,
+) => void | Promise<void>;
 
 /**
  * Coordinates asynchronous reads for a path without allowing an older read to

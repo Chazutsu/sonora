@@ -1,4 +1,4 @@
-import type { QueueItem } from "./types";
+import type { ReadonlyQueueItem } from "./types";
 
 export type RecordingTargetContext = {
 	itemId: string;
@@ -8,8 +8,8 @@ export type RecordingTargetContext = {
 
 /** Resolves at save time so Vault renames queued before stop are observed. */
 export function resolveRecordingTarget(
-	context: RecordingTargetContext,
-	queue: readonly QueueItem[],
+	context: Readonly<RecordingTargetContext>,
+	queue: readonly ReadonlyQueueItem[],
 ): { path: string; title: string } {
 	const current = queue.find((item) => item.id === context.itemId);
 	return current ? { path: current.path, title: current.title } : context;

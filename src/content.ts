@@ -84,7 +84,7 @@ export function chaptersFromMarkdown(markdown: string, fallbackTitle: string): C
 	return chapters.length
 		? chapters
 		: [{ heading: fallbackTitle, level: 1, text: readableMarkdown(source) }].filter(
-				(chapter) => chapter.text,
+				(chapter: Readonly<Chapter>) => chapter.text,
 			);
 }
 

@@ -1,8 +1,4 @@
-import type { QueueItem } from "./types";
-
-type ReadonlyQueueItem = Omit<Readonly<QueueItem>, "chapters"> & {
-	readonly chapters: readonly Readonly<QueueItem["chapters"][number]>[];
-};
+import type { ReadonlyQueueItem } from "./types";
 
 export function continueListening<Item extends ReadonlyQueueItem>(
 	queue: readonly Item[],
@@ -14,11 +10,11 @@ export function continueListening<Item extends ReadonlyQueueItem>(
 		.slice(0, Math.max(0, limit));
 }
 
-export type QueueSections<Item extends ReadonlyQueueItem = QueueItem> = {
-	current: Item | null;
-	next: Item | null;
-	following: Item[];
-	history: Item[];
+export type QueueSections<Item extends ReadonlyQueueItem = ReadonlyQueueItem> = {
+	readonly current: Item | null;
+	readonly next: Item | null;
+	readonly following: readonly Item[];
+	readonly history: readonly Item[];
 };
 
 /** Derives the listening order without mutating the persisted manual queue. */

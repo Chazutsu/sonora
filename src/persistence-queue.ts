@@ -20,7 +20,7 @@ export class PersistenceQueue<T> {
 
 	constructor(
 		private readonly write: (snapshot: T) => Promise<void>,
-		private readonly options: PersistenceQueueOptions = {},
+		private readonly options: Readonly<PersistenceQueueOptions> = {},
 	) {}
 
 	get dirty(): boolean {
