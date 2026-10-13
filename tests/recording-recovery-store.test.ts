@@ -469,6 +469,8 @@ describe("RecordingRecoveryStore", () => {
 
 	it("renews ownership during processing longer than the base lease", async () => {
 		vi.useFakeTimers();
+		const setIntervalSpy = vi.spyOn(window, "setInterval");
+		const clearIntervalSpy = vi.spyOn(window, "clearInterval");
 		vi.setSystemTime(1_000);
 		const adapter = new MemoryAdapter();
 		const root = "Sonora/Voice memos/.sonora-pending";
@@ -504,6 +506,8 @@ describe("RecordingRecoveryStore", () => {
 		});
 		expect(await store.recover()).toHaveLength(1);
 		await store.withClaim("long", async () => void (await vi.advanceTimersByTimeAsync(16_000)));
+		expect(setIntervalSpy).toHaveBeenCalledOnce();
+		expect(clearIntervalSpy).toHaveBeenCalledOnce();
 		vi.useRealTimers();
 	});
 

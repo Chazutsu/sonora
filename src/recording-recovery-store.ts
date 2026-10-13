@@ -244,7 +244,7 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 		await this.assertOwnership(sessionId);
 		const leaseMs = this.options.claimLeaseMs ?? 30_000;
 		let renewalError: unknown = null;
-		const timer = setInterval(
+		const timer = window.setInterval(
 			() => {
 				void this.renewClaim(sessionId).catch((error) => {
 					renewalError = error;
@@ -260,7 +260,7 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 			await cleanup?.();
 			return result;
 		} finally {
-			clearInterval(timer);
+			window.clearInterval(timer);
 		}
 	}
 	private serial<T>(operation: () => Promise<T>): Promise<T> {
@@ -416,9 +416,9 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 			epoch: now,
 		};
 		await this.options.adapter.write(this.ownClaimPath(manifest.sessionId), JSON.stringify(record));
-		await (this.options.delay ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))))(
-			this.options.claimSettleMs ?? 750,
-		);
+		await (
+			this.options.delay ?? ((ms) => new Promise((resolve) => window.setTimeout(resolve, ms)))
+		)(this.options.claimSettleMs ?? 750);
 		const winner = await this.claimWinner(manifest.sessionId);
 		const won = winner?.installId === this.options.installId && winner.epoch === record.epoch;
 		if (won) this.claimEpochs.set(manifest.sessionId, record.epoch);

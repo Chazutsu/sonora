@@ -13,7 +13,7 @@ beforeEach(() => {
 	HTMLElement.prototype.scrollTo = vi.fn();
 });
 
-function renderApp(overrides: Partial<SonoraAppProps> = {}) {
+function renderApp(overrides: Partial<SonoraAppProps> = {}, container?: HTMLElement) {
 	const noop = vi.fn();
 	const props: SonoraAppProps = {
 		queue: [],
@@ -53,7 +53,7 @@ function renderApp(overrides: Partial<SonoraAppProps> = {}) {
 		...overrides,
 	};
 
-	return { ...render(<SonoraApp {...props} />), props };
+	return { ...render(<SonoraApp {...props} />, container ? { container } : undefined), props };
 }
 
 describe("SonoraApp empty library", () => {
@@ -250,6 +250,28 @@ function openMobileControls() {
 }
 
 describe("SonoraApp mobile add menu", () => {
+	it("binds dismissal to the view owner document for popout windows", async () => {
+		const frame = document.createElement("iframe");
+		document.body.append(frame);
+		const frameDocument = frame.contentDocument;
+		if (!frameDocument) throw new Error("Frame document is unavailable");
+		renderApp({}, frameDocument.body);
+		const view = within(frameDocument.body);
+		const trigger = view.getByText("Add", { selector: "summary" });
+		const details = trigger.closest("details");
+		if (!details) throw new Error("Add menu details not found");
+		details.open = true;
+		fireEvent(details, new Event("toggle"));
+		await waitFor(() =>
+			expect(frameDocument.activeElement?.textContent).toContain("Listening note"),
+		);
+
+		fireEvent.keyDown(frameDocument, { key: "Escape" });
+
+		expect(details.open).toBe(false);
+		expect(frameDocument.activeElement).toBe(trigger);
+	});
+
 	it("links the trigger to the menu and focuses the first action when opened", async () => {
 		renderApp();
 		const { trigger } = openAddMenu();
