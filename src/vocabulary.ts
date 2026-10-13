@@ -29,10 +29,10 @@ export function vocabularyFromMarkdown(markdown: string): VocabularyCard[] {
 		if (key === "pronunciation" || key === "発音") current.pronunciation = value;
 	}
 	if (current?.meaning) cards.push(current);
-	return cards.filter((card) => card.term && card.meaning);
+	return cards.filter((card: Readonly<VocabularyCard>) => card.term && card.meaning);
 }
 
-export function vocabularyChapters(cards: VocabularyCard[]): Chapter[] {
+export function vocabularyChapters(cards: readonly Readonly<VocabularyCard>[]): Chapter[] {
 	return cards.map((card) => ({
 		heading: card.term,
 		level: 2,

@@ -34,7 +34,7 @@ import type { SonoraCopy } from "./i18n";
 import type { PlayerState } from "./player";
 import { speechProgressLines } from "./progress-throttle";
 import type { QueuePlacement } from "./queue-reorder";
-import type { QueueItem, SonoraSettings } from "./types";
+import type { ReadonlyQueueItem, SonoraSettings } from "./types";
 import { continueListening, queueSections, type QueueSections } from "./playback-information";
 
 type LibraryFilter = "all" | "notes" | "drills";
@@ -42,8 +42,19 @@ type LibraryStatus = "all" | "unplayed" | "in-progress" | "completed";
 type LibrarySort = "manual" | "recent" | "progress";
 
 type ChapterMatch = { heading: string; index: number };
+type EscapeKeyEvent = { readonly key: string; readonly preventDefault: () => void };
+type PointerTargetEvent = { readonly target: unknown };
+type ValueEvent = { readonly target: { readonly value: string } };
+type PropagationEvent = { readonly stopPropagation: () => void };
+type ClickDetailEvent = { readonly detail: number };
+type ToggleEvent = { readonly currentTarget: { readonly open: boolean } };
+type LibraryRowView = { readonly dataset: { readonly sonoraItemId?: string } };
+type BlurContainmentEvent = {
+	readonly currentTarget: { readonly contains: (target: Node | null) => boolean };
+	readonly relatedTarget: Node | null;
+};
 
-function matchingChapter(item: QueueItem, query: string): ChapterMatch | null {
+function matchingChapter(item: ReadonlyQueueItem, query: string): ChapterMatch | null {
 	if (!query || item.title.toLocaleLowerCase().includes(query)) return null;
 	const index = item.chapters.findIndex((candidate) =>
 		candidate.heading.toLocaleLowerCase().includes(query),
@@ -93,24 +104,24 @@ function handleMobileControlsKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) 
 }
 
 export type SonoraAppProps = {
-	queue: QueueItem[];
+	queue: readonly ReadonlyQueueItem[];
 	activeItemId: string | null;
 	upNextItemId: string | null;
 	playerState: PlayerState;
-	settings: SonoraSettings;
+	settings: Readonly<SonoraSettings>;
 	recording: boolean;
 	recordingRequesting: boolean;
 	recordingAccessIssue: RecordingAccessIssue | null;
 	playbackError: string | null;
 	spokenText: string;
 	spokenOffset: number;
-	copy: SonoraCopy;
-	removalUndo: {
+	copy: Readonly<SonoraCopy>;
+	removalUndo: Readonly<{
 		id: string;
 		title: string;
 		focusUndo: boolean;
 		returnFocusItemId: string | null;
-	} | null;
+	}> | null;
 	onBrowseNotes: () => void;
 	onBrowseVocabulary: () => void;
 	onCreateVocabularyTemplate: () => void;
@@ -135,7 +146,7 @@ export type SonoraAppProps = {
 };
 
 export function activeItemAfterRemoval(
-	queue: readonly QueueItem[],
+	queue: readonly ReadonlyQueueItem[],
 	removedIndex: number,
 	preferredItemId: string | null,
 ): string | null {
@@ -149,9 +160,9 @@ function QueuePanel({
 	onMove,
 	onPlay,
 	onSetNext,
-}: {
-	sections: QueueSections;
-	copy: SonoraCopy;
+}: Readonly<{
+	sections: Readonly<QueueSections>;
+	copy: Readonly<SonoraCopy>;
 	onMove: (
 		id: string,
 		targetId: string,
@@ -160,8 +171,8 @@ function QueuePanel({
 	) => void;
 	onPlay: (id: string) => void;
 	onSetNext: (id: string) => void;
-}) {
-	const row = (item: QueueItem, status: string, actions = false, index = -1) => {
+}>) {
+	const row = (item: ReadonlyQueueItem, status: string, actions = false, index = -1) => {
 		const chapter = item.chapters[item.chapterIndex];
 		const previous = sections.following[index - 1];
 		const next = sections.following[index + 1];
@@ -264,7 +275,7 @@ function QueuePanel({
 	);
 }
 
-export function SonoraApp(props: SonoraAppProps) {
+export function SonoraApp(props: Readonly<SonoraAppProps>) {
 	const appRoot = useRef<HTMLElement>(null);
 	const undoButton = useRef<HTMLButtonElement>(null);
 	const undoHadFocus = useRef(false);
@@ -301,7 +312,7 @@ export function SonoraApp(props: SonoraAppProps) {
 	const rowMenuId = useId();
 	const filtered = useMemo(() => {
 		const query = libraryQuery.trim().toLocaleLowerCase();
-		const progress = (item: QueueItem) =>
+		const progress = (item: ReadonlyQueueItem) =>
 			item.completed ? 1 : item.chapters.length > 0 ? item.chapterIndex / item.chapters.length : 0;
 		return props.queue
 			.filter(
@@ -360,7 +371,7 @@ export function SonoraApp(props: SonoraAppProps) {
 		window.requestAnimationFrame(() => {
 			const root = appRoot.current;
 			const row = Array.from(root?.querySelectorAll<HTMLElement>(".sonora-library-row") ?? []).find(
-				(candidate) => candidate.dataset.sonoraItemId === itemId,
+				(candidate: LibraryRowView) => candidate.dataset.sonoraItemId === itemId,
 			);
 			const target =
 				row?.querySelector<HTMLElement>(".sonora-row-main") ??
@@ -458,12 +469,12 @@ export function SonoraApp(props: SonoraAppProps) {
 	useEffect(() => {
 		const ownerDocument = mobileAdd.current?.ownerDocument;
 		if (!ownerDocument) return () => undefined;
-		const handleKeyDown = (event: KeyboardEvent) => {
+		const handleKeyDown = (event: EscapeKeyEvent) => {
 			if (event.key !== "Escape" || !mobileAdd.current?.open) return;
 			event.preventDefault();
 			closeMobileAdd(true);
 		};
-		const handlePointerDown = (event: PointerEvent) => {
+		const handlePointerDown = (event: PointerTargetEvent) => {
 			if (!mobileAdd.current?.open || mobileAdd.current.contains(event.target as Node)) return;
 			closeMobileAdd(true);
 		};
@@ -485,12 +496,12 @@ export function SonoraApp(props: SonoraAppProps) {
 			?.querySelector<HTMLElement>("button:not(:disabled), select:not(:disabled)")
 			?.focus();
 
-		const handleKeyDown = (event: KeyboardEvent) => {
+		const handleKeyDown = (event: EscapeKeyEvent) => {
 			if (event.key !== "Escape") return;
 			event.preventDefault();
 			closeMobileControls(true);
 		};
-		const handlePointerDown = (event: PointerEvent) => {
+		const handlePointerDown = (event: PointerTargetEvent) => {
 			const target = event.target;
 			if (!(target instanceof Node)) return;
 			if (
@@ -515,12 +526,12 @@ export function SonoraApp(props: SonoraAppProps) {
 		const ownerDocument = mobileFiltersPopover.current?.ownerDocument;
 		if (!ownerDocument) return;
 		mobileFiltersPopover.current?.querySelector<HTMLElement>("select")?.focus();
-		const handleKeyDown = (event: KeyboardEvent) => {
+		const handleKeyDown = (event: EscapeKeyEvent) => {
 			if (event.key !== "Escape") return;
 			event.preventDefault();
 			closeMobileFilters(true);
 		};
-		const handlePointerDown = (event: PointerEvent) => {
+		const handlePointerDown = (event: PointerTargetEvent) => {
 			const target = event.target;
 			if (!(target instanceof Node)) return;
 			if (
@@ -543,12 +554,12 @@ export function SonoraApp(props: SonoraAppProps) {
 		const ownerDocument = rowMenuPopover.current?.ownerDocument;
 		if (!ownerDocument) return;
 		rowMenuPopover.current?.querySelector<HTMLElement>("button:not(:disabled)")?.focus();
-		const handleKeyDown = (event: KeyboardEvent) => {
+		const handleKeyDown = (event: EscapeKeyEvent) => {
 			if (event.key !== "Escape") return;
 			event.preventDefault();
 			closeRowMenu(true);
 		};
-		const handlePointerDown = (event: PointerEvent) => {
+		const handlePointerDown = (event: PointerTargetEvent) => {
 			const target = event.target;
 			if (!(target instanceof Node)) return;
 			if (rowMenuPopover.current?.contains(target) || rowMenuTrigger.current?.contains(target))
@@ -694,7 +705,7 @@ export function SonoraApp(props: SonoraAppProps) {
 							<details
 								className="sonora-mobile-add"
 								ref={mobileAdd}
-								onToggle={(event) => {
+								onToggle={(event: ToggleEvent) => {
 									if (!event.currentTarget.open) return;
 									queueMicrotask(() => mobileAddMenu.current?.querySelector("button")?.focus());
 								}}
@@ -939,7 +950,7 @@ export function SonoraApp(props: SonoraAppProps) {
 											type="search"
 											placeholder={props.copy.searchPlaceholder}
 											value={libraryQuery}
-											onChange={(event) => {
+											onChange={(event: ValueEvent) => {
 												setLibraryQuery(event.target.value);
 											}}
 										/>
@@ -971,7 +982,7 @@ export function SonoraApp(props: SonoraAppProps) {
 										<select
 											aria-label={props.copy.statusFilter}
 											value={libraryStatus}
-											onChange={(event) => {
+											onChange={(event: ValueEvent) => {
 												setLibraryStatus(event.target.value as LibraryStatus);
 											}}
 										>
@@ -983,7 +994,7 @@ export function SonoraApp(props: SonoraAppProps) {
 										<select
 											aria-label={props.copy.sortLibrary}
 											value={librarySort}
-											onChange={(event) => {
+											onChange={(event: ValueEvent) => {
 												setLibrarySort(event.target.value as LibrarySort);
 											}}
 										>
@@ -1058,7 +1069,7 @@ export function SonoraApp(props: SonoraAppProps) {
 													<button
 														type="button"
 														className={`sonora-row-art ${item.kind === "drill" ? "is-drill" : ""}`}
-														onClick={(event) => {
+														onClick={(event: PropagationEvent) => {
 															event.stopPropagation();
 															props.onPlayPause(item.id);
 														}}
@@ -1082,7 +1093,7 @@ export function SonoraApp(props: SonoraAppProps) {
 																		.replace("{heading}", chapterMatch.heading)
 																: undefined
 														}
-														onClick={(event) => {
+														onClick={(event: PropagationEvent) => {
 															event.stopPropagation();
 															if (chapterMatch) props.onSelectChapter(item.id, chapterMatch.index);
 															else setDetailItemId(item.id);
@@ -1134,7 +1145,7 @@ export function SonoraApp(props: SonoraAppProps) {
 												</button>
 												<button
 													className="sonora-row-remove"
-													onClick={(event) => {
+													onClick={(event: ClickDetailEvent) => {
 														props.onRemove(item.id, event.detail === 0, nextVisibleItemId);
 													}}
 													aria-label={`${props.copy.remove} ${item.title}`}
@@ -1189,7 +1200,7 @@ export function SonoraApp(props: SonoraAppProps) {
 														</button>
 														<button
 															role="menuitem"
-															onClick={(event) => {
+															onClick={(event: ClickDetailEvent) => {
 																closeRowMenu(false);
 																props.onRemove(item.id, event.detail === 0, nextVisibleItemId);
 															}}
@@ -1470,7 +1481,7 @@ export function SonoraApp(props: SonoraAppProps) {
 							<select
 								aria-label={props.copy.speed}
 								value={props.settings.rate}
-								onChange={(event) => {
+								onChange={(event: ValueEvent) => {
 									props.onRateChange(Number(event.target.value));
 								}}
 							>
@@ -1551,7 +1562,7 @@ export function SonoraApp(props: SonoraAppProps) {
 									<span>{props.copy.speed}</span>
 									<select
 										value={props.settings.rate}
-										onChange={(event) => {
+										onChange={(event: ValueEvent) => {
 											props.onRateChange(Number(event.target.value));
 										}}
 									>
@@ -1605,7 +1616,7 @@ export function SonoraApp(props: SonoraAppProps) {
 					onFocusCapture={() => {
 						undoHadFocus.current = true;
 					}}
-					onBlurCapture={(event) => {
+					onBlurCapture={(event: BlurContainmentEvent) => {
 						if (!event.currentTarget.contains(event.relatedTarget)) {
 							undoHadFocus.current = false;
 						}
@@ -1643,7 +1654,7 @@ export function SonoraApp(props: SonoraAppProps) {
 	);
 }
 
-export function activeLyricIndex(lines: string[], offset: number): number {
+export function activeLyricIndex(lines: readonly string[], offset: number): number {
 	if (!lines.length) return -1;
 	let cursor = 0;
 	const index = lines.findIndex((line) => {
@@ -1662,7 +1673,7 @@ export function LyricsCard({
 	text,
 	offset,
 	playing,
-}: {
+}: Readonly<{
 	title?: string;
 	kind?: string;
 	readingNow?: string;
@@ -1671,7 +1682,7 @@ export function LyricsCard({
 	text: string;
 	offset: number;
 	playing: boolean;
-}) {
+}>) {
 	const lines = speechProgressLines(text);
 	const activeIndex = activeLyricIndex(lines, offset);
 	const activeLine = lines[activeIndex] ?? "";

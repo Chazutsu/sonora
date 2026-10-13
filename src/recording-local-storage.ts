@@ -16,7 +16,7 @@ function rootsFrom(value: unknown): string[] {
 	return value.filter((root): root is string => typeof root === "string");
 }
 
-function legacyValue(storage: LegacyLocalStorage | null, key: string): unknown {
+function legacyValue(storage: Readonly<LegacyLocalStorage> | null, key: string): unknown {
 	if (!storage) return null;
 	try {
 		const value = storage.getItem(key);
@@ -27,9 +27,9 @@ function legacyValue(storage: LegacyLocalStorage | null, key: string): unknown {
 }
 
 export function migrateLegacyRecordingStorage(
-	app: VaultLocalStorage,
+	app: Readonly<VaultLocalStorage>,
 	vaultName: string,
-	legacyStorage: LegacyLocalStorage | null,
+	legacyStorage: Readonly<LegacyLocalStorage> | null,
 ): void {
 	if (app.loadLocalStorage(RECORDING_STORAGE_MIGRATION_KEY) === true) return;
 	if (!legacyStorage) return;
@@ -53,7 +53,7 @@ export function migrateLegacyRecordingStorage(
 	app.saveLocalStorage(RECORDING_STORAGE_MIGRATION_KEY, true);
 }
 
-export function rememberRecordingRoot(app: VaultLocalStorage, current: string): string[] {
+export function rememberRecordingRoot(app: Readonly<VaultLocalStorage>, current: string): string[] {
 	const roots = [
 		current,
 		...rootsFrom(app.loadLocalStorage(RECORDING_ROOTS_STORAGE_KEY)).filter(
@@ -64,7 +64,10 @@ export function rememberRecordingRoot(app: VaultLocalStorage, current: string): 
 	return roots;
 }
 
-export function recordingInstallId(app: VaultLocalStorage, createId: () => string): string {
+export function recordingInstallId(
+	app: Readonly<VaultLocalStorage>,
+	createId: () => string,
+): string {
 	const existing = app.loadLocalStorage(RECORDING_INSTALL_STORAGE_KEY);
 	if (typeof existing === "string" && existing.length > 0) return existing;
 	const created = createId();

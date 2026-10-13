@@ -5,7 +5,7 @@ export interface VaultPathFile {
 }
 
 export function enqueueVaultModify<File extends VaultPathFile>(
-	queue: VaultEventQueue,
+	queue: Readonly<VaultEventQueue>,
 	eventFile: File,
 	resolve: (path: string) => File | null,
 	onModify: (file: File) => void | Promise<void>,
@@ -20,7 +20,7 @@ export function enqueueVaultModify<File extends VaultPathFile>(
 }
 
 export function enqueueVaultRename<File extends VaultPathFile>(
-	queue: VaultEventQueue,
+	queue: Readonly<VaultEventQueue>,
 	eventFile: File,
 	oldPath: string,
 	resolve: (path: string) => File | null,

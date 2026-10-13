@@ -42,6 +42,7 @@ import { reorderQueueById, reorderQueueDurably, type QueuePlacement } from "./qu
 import {
 	DEFAULT_SETTINGS,
 	type QueueItem,
+	type ReadonlyQueueItem,
 	type SonoraData,
 	type SonoraSettings,
 	type StoredSonoraData,
@@ -52,13 +53,13 @@ import { VaultEventQueue } from "./vault-event-queue";
 import { enqueueVaultModify, enqueueVaultRename } from "./vault-file-events";
 import { hydrateQueueItems } from "./queue-hydration";
 import { resolveRecordingTarget } from "./recording-target";
-import { RecordingRecoveryStore } from "./recording-recovery-store";
+import { RecordingRecoveryStore, type RecordingCheckpointPart } from "./recording-recovery-store";
 import {
 	migrateLegacyRecordingStorage,
 	recordingInstallId,
 	rememberRecordingRoot,
 } from "./recording-local-storage";
-import { ViewRegistry } from "./view-registry";
+import { ViewRegistry, type RenderableView } from "./view-registry";
 import {
 	DEFAULT_REMOVAL_UNDO_DURATION_MS,
 	RemovalUndoHistory,
@@ -91,9 +92,9 @@ type RecordingContext = Record<string, unknown> & {
 
 class NotePickerModal extends FuzzySuggestModal<TFile> {
 	constructor(
-		app: SonoraPlugin["app"],
+		app: Readonly<SonoraPlugin["app"]>,
 		private readonly mode: "note" | "drill",
-		private readonly onChoose: (file: TFile) => void,
+		private readonly onChoose: (file: Readonly<TFile>) => void,
 	) {
 		super(app);
 		this.setPlaceholder(
@@ -103,13 +104,18 @@ class NotePickerModal extends FuzzySuggestModal<TFile> {
 	getItems() {
 		return this.app.vault
 			.getMarkdownFiles()
-			.toSorted((left, right) => right.stat.mtime - left.stat.mtime);
+			.toSorted(
+				(
+					left: { readonly stat: { readonly mtime: number } },
+					right: { readonly stat: { readonly mtime: number } },
+				) => right.stat.mtime - left.stat.mtime,
+			);
 	}
-	getItemText(file: TFile) {
+	getItemText(file: Readonly<TFile>) {
 		const folder = file.parent?.path;
 		return folder && folder !== "/" ? `${file.basename} — ${folder}` : file.basename;
 	}
-	onChooseItem(file: TFile) {
+	onChooseItem(file: Readonly<TFile>) {
 		this.onChoose(file);
 	}
 }
@@ -117,8 +123,8 @@ class NotePickerModal extends FuzzySuggestModal<TFile> {
 class SonoraView extends ItemView {
 	private root: Root | null = null;
 	constructor(
-		leaf: WorkspaceLeaf,
-		private readonly plugin: SonoraPlugin,
+		leaf: Readonly<WorkspaceLeaf>,
+		private readonly plugin: Readonly<SonoraPlugin>,
 	) {
 		super(leaf);
 	}
@@ -212,7 +218,7 @@ export default class SonoraPlugin extends Plugin {
 	playbackError: string | null = null;
 	spokenText = "";
 	spokenOffset = 0;
-	private readonly views = new ViewRegistry<SonoraView>();
+	private readonly views = new ViewRegistry<Readonly<RenderableView>>();
 	private player: SpeechPlayer | null = null;
 	private recordingSession: RecordingSession<RecordingContext> | null = null;
 	private recordingRecovery: RecordingRecoveryStore<RecordingContext> | null = null;
@@ -232,7 +238,7 @@ export default class SonoraPlugin extends Plugin {
 	private vaultEvents: VaultEventQueue | null = null;
 	private readonly removalUndo = new RemovalUndoHistory(DEFAULT_REMOVAL_UNDO_DURATION_MS);
 	private removalUndoTimer: number | null = null;
-	private removalUndoFocusView: SonoraView | null = null;
+	private removalUndoFocusView: Readonly<RenderableView> | null = null;
 
 	async onload() {
 		try {
@@ -269,7 +275,7 @@ export default class SonoraPlugin extends Plugin {
 		const copy = copyFor(this.data.settings.interfaceLanguage);
 		if (!journalReady) notifySaveFailure();
 		this.persistenceQueue = new PersistenceQueue(
-			async (snapshot) => {
+			async (snapshot: Readonly<StoredSonoraData>) => {
 				if (!journalReady) throw new Error("Sonora persistence journal is unavailable");
 				const receipt = await this.persistenceJournal?.write(snapshot);
 				if (receipt) {
@@ -334,7 +340,7 @@ export default class SonoraPlugin extends Plugin {
 				if (!this.recordingRecovery) throw new Error("Recording recovery is unavailable");
 				return this.recordingRecovery.begin(input);
 			},
-			onCheckpointPart: (input) => {
+			onCheckpointPart: (input: Readonly<RecordingCheckpointPart>) => {
 				if (!this.recordingRecovery) throw new Error("Recording recovery is unavailable");
 				return this.recordingRecovery.append(input);
 			},
@@ -489,11 +495,11 @@ export default class SonoraPlugin extends Plugin {
 		await this.app.workspace.revealLeaf(leaf);
 	}
 
-	registerOpenView(view: SonoraView): void {
+	registerOpenView(view: Readonly<RenderableView>): void {
 		this.views.add(view);
 	}
 
-	unregisterOpenView(view: SonoraView): void {
+	unregisterOpenView(view: Readonly<RenderableView>): void {
 		this.views.delete(view);
 	}
 
@@ -507,7 +513,7 @@ export default class SonoraPlugin extends Plugin {
 		new NotePickerModal(this.app, mode, (file) => void this.addFile(file, mode)).open();
 	}
 
-	private async addFile(file: TFile, mode: "note" | "drill") {
+	private async addFile(file: Readonly<TFile>, mode: "note" | "drill") {
 		if (mode === "drill") {
 			await this.addVocabularyFile(file);
 			return;
@@ -519,7 +525,7 @@ export default class SonoraPlugin extends Plugin {
 		this.transportGeneration += 1;
 		this.resetPlaybackPresentation();
 		const existing = this.data.queue.find(
-			(item) => sameVaultPath(item.path, file.path) && item.kind !== "drill",
+			(item: ReadonlyQueueItem) => sameVaultPath(item.path, file.path) && item.kind !== "drill",
 		);
 		if (existing) {
 			this.data.activeItemId = existing.id;
@@ -556,14 +562,14 @@ export default class SonoraPlugin extends Plugin {
 		await this.addVocabularyFile(file);
 	}
 
-	private async addVocabularyFile(file: TFile) {
+	private async addVocabularyFile(file: Readonly<TFile>) {
 		const markdown = await this.app.vault.cachedRead(file);
 		const chapters = vocabularyChapters(vocabularyFromMarkdown(markdown));
 		if (!chapters.length) return void new Notice(this.copy().noticeNoVocabularyCards);
 		this.transportGeneration += 1;
 		this.resetPlaybackPresentation();
 		const existing = this.data.queue.find(
-			(item) => sameVaultPath(item.path, file.path) && item.kind === "drill",
+			(item: ReadonlyQueueItem) => sameVaultPath(item.path, file.path) && item.kind === "drill",
 		);
 		if (existing) {
 			existing.chapters = chapters;
@@ -607,7 +613,11 @@ export default class SonoraPlugin extends Plugin {
 	}
 
 	async select(id: string) {
-		if (id === this.data.activeItemId || !this.data.queue.some((item) => item.id === id)) return;
+		if (
+			id === this.data.activeItemId ||
+			!this.data.queue.some((item: ReadonlyQueueItem) => item.id === id)
+		)
+			return;
 		this.transportGeneration += 1;
 		this.resetPlaybackPresentation();
 		this.data.activeItemId = id;
@@ -617,7 +627,7 @@ export default class SonoraPlugin extends Plugin {
 	}
 
 	async selectChapter(id: string, chapterIndex: number) {
-		const item = this.data.queue.find((candidate) => candidate.id === id);
+		const item = this.data.queue.find((candidate: ReadonlyQueueItem) => candidate.id === id);
 		if (!item || !Number.isInteger(chapterIndex) || !item.chapters[chapterIndex]) return;
 		if (id === this.data.activeItemId && chapterIndex === item.chapterIndex) return;
 		this.transportGeneration += 1;
@@ -657,10 +667,10 @@ export default class SonoraPlugin extends Plugin {
 	}
 	async remove(
 		id: string,
-		focusUndoView: SonoraView | null = null,
+		focusUndoView: Readonly<RenderableView> | null = null,
 		nextVisibleItemId: string | null = null,
 	) {
-		const index = this.data.queue.findIndex((item) => item.id === id);
+		const index = this.data.queue.findIndex((item: ReadonlyQueueItem) => item.id === id);
 		const item = this.data.queue[index];
 		if (!item) return;
 		const wasActive = this.data.activeItemId === id;
@@ -668,10 +678,10 @@ export default class SonoraPlugin extends Plugin {
 			this.transportGeneration += 1;
 			this.resetPlaybackPresentation();
 		}
-		this.data.queue = this.data.queue.filter((candidate) => candidate.id !== id);
+		this.data.queue = this.data.queue.filter((candidate: ReadonlyQueueItem) => candidate.id !== id);
 		if (this.data.upNextItemId === id) this.data.upNextItemId = null;
 		const nextVisibleExists = this.data.queue.some(
-			(candidate) => candidate.id === nextVisibleItemId,
+			(candidate: ReadonlyQueueItem) => candidate.id === nextVisibleItemId,
 		);
 		if (wasActive) {
 			this.data.activeItemId = activeItemAfterRemoval(this.data.queue, index, nextVisibleItemId);
@@ -689,7 +699,7 @@ export default class SonoraPlugin extends Plugin {
 	}
 
 	latestRemovalUndo(
-		view: SonoraView,
+		view: Readonly<RenderableView>,
 	): { id: string; title: string; focusUndo: boolean; returnFocusItemId: string | null } | null {
 		const entry = this.removalUndo.latest();
 		return entry
@@ -770,7 +780,7 @@ export default class SonoraPlugin extends Plugin {
 
 	async playPause(itemId?: string) {
 		if (itemId && itemId !== this.data.activeItemId) {
-			const item = this.data.queue.find((candidate) => candidate.id === itemId);
+			const item = this.data.queue.find((candidate: ReadonlyQueueItem) => candidate.id === itemId);
 			if (!item) return;
 			this.transportGeneration += 1;
 			this.resetPlaybackPresentation();
@@ -866,7 +876,7 @@ export default class SonoraPlugin extends Plugin {
 		await this.persist();
 		this.refresh();
 	}
-	async updateSettings(settings: Partial<SonoraSettings>) {
+	async updateSettings(settings: Readonly<Partial<SonoraSettings>>) {
 		this.data.settings = { ...this.data.settings, ...settings };
 		await this.persist();
 		if (settings.recordingFolder && !this.recording) this.syncRecordingRecoveryRoot();
@@ -1123,7 +1133,9 @@ export default class SonoraPlugin extends Plugin {
 	}
 	private active(itemId = this.data.activeItemId ?? undefined) {
 		if (itemId !== (this.data.activeItemId ?? undefined)) return undefined;
-		return this.data.queue.find((item) => item.id === itemId) ?? this.data.queue[0];
+		return (
+			this.data.queue.find((item: ReadonlyQueueItem) => item.id === itemId) ?? this.data.queue[0]
+		);
 	}
 	sourceFile(): TFile | null {
 		const active = this.app.workspace.getActiveFile();
@@ -1260,13 +1272,16 @@ export default class SonoraPlugin extends Plugin {
 		await this.persist();
 		this.refresh();
 	}
-	private async refreshFile(file: TFile) {
-		if (!this.data.queue.some((item) => sameVaultPath(item.path, file.path))) return;
+	private async refreshFile(file: Readonly<TFile>) {
+		if (!this.data.queue.some((item: ReadonlyQueueItem) => sameVaultPath(item.path, file.path)))
+			return;
 		const result = await this.refreshCoordinator?.refresh(file.path);
 		if (!result || result.status === "stale") return;
-		const items = this.data.queue.filter((item) => sameVaultPath(item.path, file.path));
+		const items = this.data.queue.filter((item: ReadonlyQueueItem) =>
+			sameVaultPath(item.path, file.path),
+		);
 		if (!items.length) return;
-		if (items.some((item) => item.id === this.active()?.id)) {
+		if (items.some((item: ReadonlyQueueItem) => item.id === this.active()?.id)) {
 			this.transportGeneration += 1;
 			this.resetPlaybackPresentation();
 		}
@@ -1276,7 +1291,7 @@ export default class SonoraPlugin extends Plugin {
 		this.refresh();
 		this.refreshCoordinator?.forgetIfCurrent(file.path, result.generation);
 	}
-	private enqueueFileModify(file: TFile) {
+	private enqueueFileModify(file: Readonly<TFile>) {
 		if (!this.vaultEvents) return;
 		enqueueVaultModify(
 			this.vaultEvents,
@@ -1286,10 +1301,10 @@ export default class SonoraPlugin extends Plugin {
 				return current instanceof TFile && current.extension === "md" ? current : null;
 			},
 			(current) => this.refreshFile(current),
-			(path) => this.data.queue.some((item) => sameVaultPath(item.path, path)),
+			(path) => this.data.queue.some((item: ReadonlyQueueItem) => sameVaultPath(item.path, path)),
 		);
 	}
-	private enqueueFileRename(file: TFile, oldPath: string) {
+	private enqueueFileRename(file: Readonly<TFile>, oldPath: string) {
 		if (!this.vaultEvents) return;
 		enqueueVaultRename(
 			this.vaultEvents,
@@ -1302,7 +1317,7 @@ export default class SonoraPlugin extends Plugin {
 			(path, previousPath, current) => this.renameFile(path, previousPath, current),
 		);
 	}
-	private async renameFile(path: string, oldPath: string, file: TFile | null) {
+	private async renameFile(path: string, oldPath: string, file: Readonly<TFile> | null) {
 		this.refreshCoordinator?.invalidate(oldPath);
 		this.refreshCoordinator?.forget(oldPath);
 		const basename = file?.basename ?? path.split("/").at(-1)?.replace(/\.md$/i, "") ?? path;
@@ -1310,11 +1325,13 @@ export default class SonoraPlugin extends Plugin {
 		const previousPending = this.data.pendingVoiceMemoLinks;
 		this.data.pendingVoiceMemoLinks = renamePendingVoiceMemoPaths(previousPending, oldPath, path);
 		const renamedPending = this.data.pendingVoiceMemoLinks.some(
-			(item, index) =>
+			(item: Readonly<(typeof previousPending)[number]>, index) =>
 				item.audioPath !== previousPending[index]?.audioPath ||
 				item.sourcePath !== previousPending[index]?.sourcePath,
 		);
-		const items = this.data.queue.filter((item) => sameVaultPath(item.path, oldPath));
+		const items = this.data.queue.filter((item: ReadonlyQueueItem) =>
+			sameVaultPath(item.path, oldPath),
+		);
 		if (!items.length) {
 			if (renamedPending) await this.persist();
 			if (renamedUndo) this.refresh();
@@ -1342,10 +1359,13 @@ export default class SonoraPlugin extends Plugin {
 		this.refreshCoordinator?.forget(path);
 		const pendingBefore = this.data.pendingVoiceMemoLinks.length;
 		this.data.pendingVoiceMemoLinks = this.data.pendingVoiceMemoLinks.filter(
-			(item) => !sameVaultPath(item.audioPath, path),
+			(item: Readonly<(typeof this.data.pendingVoiceMemoLinks)[number]>) =>
+				!sameVaultPath(item.audioPath, path),
 		);
 		const removedPending = pendingBefore !== this.data.pendingVoiceMemoLinks.length;
-		const items = this.data.queue.filter((item) => sameVaultPath(item.path, path));
+		const items = this.data.queue.filter((item: ReadonlyQueueItem) =>
+			sameVaultPath(item.path, path),
+		);
 		if (!items.length) {
 			if (removedPending) await this.persist();
 			return;
@@ -1371,11 +1391,11 @@ export default class SonoraPlugin extends Plugin {
 		this.updateMediaSessionState("none");
 		if ("mediaSession" in navigator) navigator.mediaSession.metadata = null;
 	}
-	private async updateItemFromFile(item: QueueItem, file: TFile) {
+	private async updateItemFromFile(item: QueueItem, file: Readonly<TFile>) {
 		const markdown = await this.app.vault.cachedRead(file);
 		this.updateItemFromMarkdown(item, file, markdown);
 	}
-	private updateItemFromMarkdown(item: QueueItem, file: TFile, markdown: string) {
+	private updateItemFromMarkdown(item: QueueItem, file: Readonly<TFile>, markdown: string) {
 		const chapters =
 			item.kind === "drill"
 				? vocabularyChapters(vocabularyFromMarkdown(markdown))
@@ -1387,7 +1407,7 @@ export default class SonoraPlugin extends Plugin {
 		item.loadError = false;
 		item.chapterIndex = Math.min(item.chapterIndex, Math.max(0, chapters.length - 1));
 	}
-	private coverUrl(file: TFile, markdown: string): string | undefined {
+	private coverUrl(file: Readonly<TFile>, markdown: string): string | undefined {
 		try {
 			const reference = coverReferenceFromMarkdown(markdown);
 			if (!reference) return undefined;
@@ -1402,7 +1422,11 @@ export default class SonoraPlugin extends Plugin {
 	private resolveQueueFile(path: string): TFile | null {
 		const exact = this.app.vault.getAbstractFileByPath(path);
 		if (exact instanceof TFile) return exact;
-		return this.app.vault.getMarkdownFiles().find((file) => sameVaultPath(file.path, path)) ?? null;
+		return (
+			this.app.vault
+				.getMarkdownFiles()
+				.find((file: Readonly<TFile>) => sameVaultPath(file.path, path)) ?? null
+		);
 	}
 	private async ensureFolder(path: string) {
 		let current = "";

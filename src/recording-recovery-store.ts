@@ -10,7 +10,7 @@ interface RecoveryPart {
 	readonly commitPath: string;
 }
 
-async function hashBytes(data: ArrayBuffer): Promise<string> {
+async function hashBytes(data: Readonly<ArrayBuffer>): Promise<string> {
 	const digest = await crypto.subtle.digest("SHA-256", data);
 	return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
 }
@@ -46,13 +46,13 @@ export interface RecordingRecoveryAdapter {
 	readBinary(path: string): Promise<ArrayBuffer>;
 	stat?(path: string): Promise<{ size: number } | null>;
 	write(path: string, data: string): Promise<void>;
-	writeBinary(path: string, data: ArrayBuffer): Promise<void>;
+	writeBinary(path: string, data: Readonly<ArrayBuffer>): Promise<void>;
 	remove(path: string): Promise<void>;
 	rename?(from: string, to: string): Promise<void>;
 	rmdir?(path: string, recursive: boolean): Promise<void>;
 }
 export interface RecordingRecoveryStoreOptions {
-	readonly adapter: RecordingRecoveryAdapter;
+	readonly adapter: Readonly<RecordingRecoveryAdapter>;
 	readonly root: string;
 	readonly installId: string;
 	readonly ensureFolder: (path: string) => Promise<void>;
@@ -77,7 +77,7 @@ export interface RecordingCheckpointStart<Context extends Readonly<Record<string
 export interface RecordingCheckpointPart {
 	readonly sessionId: string;
 	readonly index: number;
-	readonly blob: Blob;
+	readonly blob: Readonly<Blob>;
 }
 
 /** Immutable chunks plus a manifest commit pointer. Claims are advisory; deterministic output bytes are the primary duplicate defense. */
@@ -88,7 +88,7 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 	private readonly maxPendingSessions: number;
 	private readonly maxPendingBytes: number;
 	private readonly claimEpochs = new Map<string, number>();
-	constructor(private readonly options: RecordingRecoveryStoreOptions) {
+	constructor(private readonly options: Readonly<RecordingRecoveryStoreOptions>) {
 		this.now = options.now ?? Date.now;
 		this.staleAfterMs = options.staleAfterMs ?? 60_000;
 		this.maxPendingSessions = options.maxPendingSessions ?? 20;
@@ -115,7 +115,7 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 			});
 		});
 	}
-	append(input: RecordingCheckpointPart): Promise<void> {
+	append(input: Readonly<RecordingCheckpointPart>): Promise<void> {
 		return this.serial(async () => {
 			await this.assertCapacity(input.blob.size, false);
 			const manifest = await this.adoptUncommittedParts(input.sessionId);

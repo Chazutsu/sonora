@@ -46,7 +46,7 @@ export class VaultEventQueue {
 	private pressureReported = false;
 	private readonly pendingLatest = new Map<string, PendingEntry>();
 
-	constructor(private readonly options: VaultEventQueueOptions = {}) {}
+	constructor(private readonly options: Readonly<VaultEventQueueOptions> = {}) {}
 
 	enqueue(
 		event: VaultEventDescriptor,
@@ -83,7 +83,7 @@ export class VaultEventQueue {
 		return this.tail;
 	}
 
-	close(options: { discardPending?: boolean } = {}): Promise<void> {
+	close(options: Readonly<{ discardPending?: boolean }> = {}): Promise<void> {
 		this.accepting = false;
 		this.discardPending = options.discardPending === true;
 		return this.whenIdle();

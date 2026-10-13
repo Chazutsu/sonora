@@ -1,5 +1,5 @@
 import { nextUnfinishedQueueItem } from "./player";
-import type { QueueItem } from "./types";
+import type { QueueItem, ReadonlyQueueItem } from "./types";
 
 export type ListeningAdvanceResult =
 	| { kind: "next-chapter" }
@@ -22,7 +22,9 @@ export async function setUpNextDurably(
 	if (
 		id !== null &&
 		(id === state.activeItemId ||
-			!state.queue.some((candidate) => candidate.id === id && !candidate.completed))
+			!state.queue.some(
+				(candidate: ReadonlyQueueItem) => candidate.id === id && !candidate.completed,
+			))
 	)
 		return false;
 	if ((state.upNextItemId ?? null) === id) return true;
@@ -57,7 +59,7 @@ export async function advanceListeningAfterEnd(
 	} else {
 		item.completed = true;
 		const requestedNext = state.queue.find(
-			(candidate) =>
+			(candidate: ReadonlyQueueItem) =>
 				candidate.id === state.upNextItemId && candidate.id !== item.id && !candidate.completed,
 		);
 		const nextItem = requestedNext ?? nextUnfinishedQueueItem(state.queue, item.id);
