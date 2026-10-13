@@ -159,8 +159,12 @@ class SonoraView extends ItemView {
 				spokenOffset={this.plugin.spokenOffset}
 				copy={copyFor(this.plugin.data.settings.interfaceLanguage)}
 				removalUndo={this.plugin.latestRemovalUndo(this)}
-				onBrowseNotes={() => this.plugin.openNotePicker("note")}
-				onBrowseVocabulary={() => this.plugin.openNotePicker("drill")}
+				onBrowseNotes={() => {
+					this.plugin.openNotePicker("note");
+				}}
+				onBrowseVocabulary={() => {
+					this.plugin.openNotePicker("drill");
+				}}
 				onCreateVocabularyTemplate={() => void this.plugin.createVocabularyTemplate()}
 				onSelect={(id) => void this.plugin.select(id)}
 				onSelectChapter={(id, chapterIndex) => void this.plugin.selectChapter(id, chapterIndex)}
@@ -177,10 +181,14 @@ class SonoraView extends ItemView {
 				onPlayPause={(id) => this.plugin.playPause(id)}
 				onPrevious={(id) => void this.plugin.previous(id)}
 				onNext={(id) => void this.plugin.next(id)}
-				onRestart={(id) => this.plugin.restart(id)}
+				onRestart={(id) => {
+					this.plugin.restart(id);
+				}}
 				onComplete={(id) => void this.plugin.complete(id)}
 				onToggleRecording={(id) => void this.plugin.toggleRecording(id)}
-				onDismissRecordingIssue={() => this.plugin.dismissRecordingIssue()}
+				onDismissRecordingIssue={() => {
+					this.plugin.dismissRecordingIssue();
+				}}
 				onRateChange={(rate) => void this.plugin.setRate(rate)}
 				onOpenSource={(id) => void this.plugin.openSource(id)}
 				onToggleLoop={(id) => void this.plugin.toggleLoop(id)}
@@ -439,12 +447,16 @@ export default class SonoraPlugin extends Plugin {
 		this.addCommand({
 			id: "retry-voice-memo-links",
 			name: copy.commandRetryVoiceMemoLinks,
-			callback: () => void this.retryPendingVoiceMemoLinks(true),
+			callback: () => {
+				void this.retryPendingVoiceMemoLinks(true);
+			},
 		});
 		this.addCommand({
 			id: "retry-loading-queue",
 			name: copy.commandRetryLoadingQueue,
-			callback: () => void this.enqueueQueueHydration(),
+			callback: () => {
+				this.enqueueQueueHydration();
+			},
 		});
 		this.addSettingTab(new SonoraSettingTab(this.app, this));
 		this.configureMediaSession();
@@ -768,8 +780,14 @@ export default class SonoraPlugin extends Plugin {
 			this.refresh();
 		}
 		if (!this.active(itemId)) return;
-		if (!this.player) return void new Notice(this.copy().noticeSpeechUnavailable);
-		if (this.playerState === "playing") return void this.pausePlayback();
+		if (!this.player) {
+			new Notice(this.copy().noticeSpeechUnavailable);
+			return;
+		}
+		if (this.playerState === "playing") {
+			this.pausePlayback();
+			return;
+		}
 		this.playPlayback();
 	}
 
@@ -1397,8 +1415,18 @@ export default class SonoraPlugin extends Plugin {
 	private configureMediaSession() {
 		if (!("mediaSession" in navigator)) return;
 		const handlers: Array<[MediaSessionAction, MediaSessionActionHandler]> = [
-			["play", () => this.playPlayback()],
-			["pause", () => this.pausePlayback()],
+			[
+				"play",
+				() => {
+					this.playPlayback();
+				},
+			],
+			[
+				"pause",
+				() => {
+					this.pausePlayback();
+				},
+			],
 			["nexttrack", () => void this.next()],
 			["previoustrack", () => void this.previous()],
 		];
