@@ -4,6 +4,13 @@ All notable changes to Sonora are documented here.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-13
+
+### Changed
+
+- Renamed the Open listening workspace command ID from `sonora:open-sonora` to `sonora:open-workspace` to satisfy the Obsidian Community Plugin policy. Existing 0.1.1 hotkey assignments for this command must be assigned again; other Sonora hotkeys are unaffected ([#3](https://github.com/Chazutsu/sonora/issues/3)).
+- Aligned plugin unload behavior, build-config type coverage, CSS compatibility, and deprecated development dependencies with the official Obsidian community scanner ([#3](https://github.com/Chazutsu/sonora/issues/3)).
+
 ## [0.1.1] - 2026-10-13
 
 ### Added

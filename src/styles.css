@@ -1578,8 +1578,7 @@
 		padding: 10px 12px;
 		grid-template-columns: minmax(0, 1fr) auto;
 		grid-template-rows: 42px 46px;
-		column-gap: 8px;
-		row-gap: 0;
+		gap: 0 8px;
 		color: #fff;
 		background: var(--sn-mobile-player);
 		border: 0;

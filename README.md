@@ -39,6 +39,10 @@ Sonora uses the device speech-synthesis and recording APIs. It does not send not
 
 Background speech and headset controls depend on the capabilities exposed by Obsidian Mobile's web view and the operating system. The plugin exposes Media Session controls, but uninterrupted playback while the screen is locked must be verified on each supported mobile release.
 
+## Upgrading to 0.1.2
+
+Sonora's **Open listening workspace** command ID changed from `sonora:open-sonora` to `sonora:open-workspace` to follow the Obsidian Community Plugin policy. If you assigned a hotkey to this command in 0.1.1, assign it again under **Settings → Hotkeys → Sonora: Open listening workspace**. Other Sonora hotkeys are unaffected.
+
 ## Development
 
 ```sh
