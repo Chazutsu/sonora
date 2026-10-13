@@ -121,7 +121,10 @@ export class VaultEventQueue {
 		});
 	}
 
-	private async run(entry: PendingEntry): Promise<void> {
+	private async run(
+		// eslint-disable-next-line @typescript-eslint/prefer-readonly-parameter-types -- Queue execution marks the pending entry as started before invoking its replaceable operation.
+		entry: PendingEntry,
+	): Promise<void> {
 		entry.started = true;
 		if (
 			entry.latestKey !== undefined &&
