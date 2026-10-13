@@ -27,6 +27,8 @@ jobs:
           node-version: '24'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Check toolchain compatibility
+        run: pnpm check:toolchain
       - run: pnpm lint
       - run: pnpm check:obsidian
       - run: pnpm format:check
