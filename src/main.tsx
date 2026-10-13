@@ -3,8 +3,6 @@ import {
 	ItemView,
 	Notice,
 	Plugin,
-	PluginSettingTab,
-	Setting,
 	TFile,
 	normalizePath,
 	type WorkspaceLeaf,
@@ -48,7 +46,7 @@ import {
 	type SonoraSettings,
 	type StoredSonoraData,
 } from "./types";
-import { SONORA_DONATE_URL, SONORA_ISSUES_URL } from "./support";
+import { SonoraSettingTab } from "./settings-tab";
 import { vocabularyChapters, vocabularyFromMarkdown } from "./vocabulary";
 import { VaultEventQueue } from "./vault-event-queue";
 import { enqueueVaultModify, enqueueVaultRename } from "./vault-file-events";
@@ -188,105 +186,6 @@ class SonoraView extends ItemView {
 				onToggleLoop={(id) => void this.plugin.toggleLoop(id)}
 			/>,
 		);
-	}
-}
-
-class SonoraSettingTab extends PluginSettingTab {
-	constructor(
-		app: SonoraPlugin["app"],
-		private readonly plugin: SonoraPlugin,
-	) {
-		super(app, plugin);
-	}
-	display() {
-		this.containerEl.empty();
-		const copy = copyFor(this.plugin.data.settings.interfaceLanguage);
-		new Setting(this.containerEl).setName(copy.settingsInterfaceLanguage).addDropdown((dropdown) =>
-			dropdown
-				.addOptions({
-					system: copy.settingsSystem,
-					en: copy.settingsEnglish,
-					ja: copy.settingsJapanese,
-				})
-				.setValue(this.plugin.data.settings.interfaceLanguage)
-				.onChange(
-					(value) =>
-						void this.plugin
-							.updateSettings({ interfaceLanguage: value as SonoraSettings["interfaceLanguage"] })
-							.then(() => this.plugin.refreshView()),
-				),
-		);
-		new Setting(this.containerEl)
-			.setName(copy.settingsVoiceLanguage)
-			.setDesc(copy.settingsVoiceLanguageDesc)
-			.addDropdown((dropdown) =>
-				dropdown
-					.addOptions({
-						system: copy.settingsSystem,
-						"en-US": copy.settingsEnglish,
-						"ja-JP": copy.settingsJapanese,
-					})
-					.setValue(this.plugin.data.settings.language)
-					.onChange(
-						(value) =>
-							void this.plugin.updateSettings({ language: value as SonoraSettings["language"] }),
-					),
-			);
-		const voices = "speechSynthesis" in window ? window.speechSynthesis.getVoices() : [];
-		const voiceOptions = Object.fromEntries([
-			["", copy.settingsVoiceAutomatic],
-			...voices.map((voice) => [
-				voice.name,
-				`${voice.name} (${voice.lang})${voice.localService ? ` · ${copy.settingsVoiceDevice}` : ""}`,
-			]),
-		]);
-		new Setting(this.containerEl)
-			.setName(copy.settingsVoice)
-			.setDesc(copy.settingsVoiceDesc)
-			.addDropdown((dropdown) =>
-				dropdown
-					.addOptions(voiceOptions)
-					.setValue(this.plugin.data.settings.voiceName)
-					.onChange((value) => void this.plugin.updateSettings({ voiceName: value })),
-			);
-		new Setting(this.containerEl)
-			.setName(copy.settingsVoiceMemoFolder)
-			.addText((text) =>
-				text
-					.setValue(this.plugin.data.settings.recordingFolder)
-					.onChange(
-						(value) => void this.plugin.updateSettings({ recordingFolder: normalizePath(value) }),
-					),
-			);
-		new Setting(this.containerEl)
-			.setName(copy.settingsLinkVoiceMemos)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.data.settings.appendVoiceMemoLink)
-					.onChange((value) => void this.plugin.updateSettings({ appendVoiceMemoLink: value })),
-			);
-		new Setting(this.containerEl)
-			.setName(copy.settingsRecallDelay)
-			.setDesc(copy.settingsRecallDelayDesc)
-			.addSlider((slider) =>
-				slider
-					.setLimits(1, 10, 1)
-					.setValue(this.plugin.data.settings.recallDelaySeconds)
-					.onChange((value) => void this.plugin.updateSettings({ recallDelaySeconds: value })),
-			);
-		new Setting(this.containerEl)
-			.setName(copy.settingsSupport)
-			.setDesc(copy.settingsSupportDesc)
-			.addButton((button) =>
-				button
-					.setButtonText(copy.settingsReportIssue)
-					.onClick(() => window.open(SONORA_ISSUES_URL, "_blank", "noopener,noreferrer")),
-			)
-			.addButton((button) =>
-				button
-					.setButtonText(copy.settingsDonate)
-					.onClick(() => window.open(SONORA_DONATE_URL, "_blank", "noopener,noreferrer")),
-			);
 	}
 }
 
