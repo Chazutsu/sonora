@@ -123,23 +123,26 @@ export class SpeechPlayer {
 		utterance.lang = languageForText(text, options.lang);
 		utterance.voice = selectVoice(this.synthesis.getVoices(), utterance.lang, options.voiceName);
 		this.reportProgress(this.chunkOffsets[this.chunkIndex] ?? 0, true);
-		utterance.addEventListener("boundary", (event: Readonly<SpeechSynthesisEvent>) => {
+		utterance.addEventListener("boundary", ({ charIndex }: { readonly charIndex: number }) => {
 			if (generation !== this.generation) return;
-			this.reportProgress((this.chunkOffsets[this.chunkIndex] ?? 0) + event.charIndex);
+			this.reportProgress((this.chunkOffsets[this.chunkIndex] ?? 0) + charIndex);
 		});
 		utterance.addEventListener("end", () => {
 			if (generation !== this.generation) return;
 			this.chunkIndex += 1;
 			this.speakCurrent(options, generation);
 		});
-		utterance.addEventListener("error", (event: Readonly<SpeechSynthesisErrorEvent>) => {
-			if (generation !== this.generation) return;
-			// Some Web Speech implementations dispatch `end` after `error`. Make
-			// every callback belonging to this utterance stale before notifying UI.
-			this.generation += 1;
-			this.setState("error");
-			this.onError(event.error);
-		});
+		utterance.addEventListener(
+			"error",
+			({ error }: { readonly error: SpeechSynthesisErrorEvent["error"] }) => {
+				if (generation !== this.generation) return;
+				// Some Web Speech implementations dispatch `end` after `error`. Make
+				// every callback belonging to this utterance stale before notifying UI.
+				this.generation += 1;
+				this.setState("error");
+				this.onError(error);
+			},
+		);
 		this.synthesis.speak(utterance);
 		this.setState("playing");
 	}

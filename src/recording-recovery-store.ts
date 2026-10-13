@@ -39,6 +39,56 @@ interface ClaimRecord {
 	readonly epoch: number;
 }
 
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+	return typeof value === "object" && value !== null;
+}
+
+function isRecoveryPart(value: unknown): value is RecoveryPart {
+	return (
+		isRecord(value) &&
+		typeof value.index === "number" &&
+		typeof value.path === "string" &&
+		typeof value.size === "number" &&
+		typeof value.sha256 === "string" &&
+		typeof value.commitPath === "string"
+	);
+}
+
+function isRecoveryManifest<Context extends Readonly<Record<string, unknown>>>(
+	value: unknown,
+): value is RecoveryManifest<Context> {
+	return (
+		isRecord(value) &&
+		value.version === MANIFEST_VERSION &&
+		typeof value.generation === "number" &&
+		typeof value.sessionId === "string" &&
+		typeof value.installId === "string" &&
+		isRecord(value.context) &&
+		typeof value.mimeType === "string" &&
+		typeof value.startedAt === "number" &&
+		typeof value.heartbeatAt === "number" &&
+		(value.state === "active" || value.state === "ready") &&
+		Array.isArray(value.parts) &&
+		value.parts.every(isRecoveryPart) &&
+		typeof value.nextChunkIndex === "number"
+	);
+}
+
+function isClaimRecord(value: unknown): value is ClaimRecord {
+	return (
+		isRecord(value) &&
+		typeof value.sessionId === "string" &&
+		typeof value.installId === "string" &&
+		typeof value.createdAt === "number" &&
+		typeof value.expiresAt === "number" &&
+		typeof value.epoch === "number"
+	);
+}
+
+function asError(value: unknown, message: string): Error {
+	return value instanceof Error ? value : new Error(message, { cause: value });
+}
+
 export interface RecordingRecoveryAdapter {
 	exists(path: string): Promise<boolean>;
 	list(path: string): Promise<{ files: string[]; folders: string[] }>;
@@ -254,7 +304,7 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 		let renewalError: unknown = null;
 		const timer = window.setInterval(
 			() => {
-				void this.renewClaim(sessionId).catch((error) => {
+				void this.renewClaim(sessionId).catch((error: unknown) => {
 					renewalError = error;
 				});
 			},
@@ -262,7 +312,8 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 		);
 		try {
 			const result = await operation();
-			if (renewalError !== null) throw renewalError;
+			if (renewalError !== null)
+				throw asError(renewalError, "Recording recovery claim renewal failed");
 			await this.renewClaim(sessionId);
 			await this.assertOwnership(sessionId);
 			await cleanup?.();
@@ -299,25 +350,16 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 			const match = /\/manifest-(\d+)-[a-zA-Z0-9_-]+\.json$/u.exec(path);
 			if (!match) continue;
 			try {
-				const parsed = JSON.parse(await this.options.adapter.read(path)) as Partial<
-					RecoveryManifest<Context>
-				>;
+				const parsed: unknown = JSON.parse(await this.options.adapter.read(path));
 				const filenameGeneration = Number(match[1]);
 				if (
-					parsed.version !== MANIFEST_VERSION ||
+					!isRecoveryManifest<Context>(parsed) ||
 					parsed.sessionId !== sessionId ||
 					parsed.generation !== filenameGeneration ||
-					(parsed.state !== "active" && parsed.state !== "ready") ||
-					!Array.isArray(parsed.parts) ||
-					typeof parsed.nextChunkIndex !== "number" ||
-					!parsed.context ||
-					typeof parsed.mimeType !== "string" ||
-					typeof parsed.startedAt !== "number" ||
-					typeof parsed.heartbeatAt !== "number" ||
-					typeof parsed.installId !== "string"
+					!Number.isFinite(parsed.generation)
 				)
 					continue;
-				valid.push(parsed as RecoveryManifest<Context>);
+				valid.push(parsed);
 			} catch {
 				// A torn latest generation must not hide an older valid generation.
 			}
@@ -351,15 +393,20 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 			(path) => path.endsWith(".part") && !referenced.has(path),
 		);
 		let next = manifest.nextChunkIndex;
-		while (true) {
+		for (;;) {
 			const prefix = `${this.sessionDirectory(sessionId)}/tail-${String(next).padStart(6, "0")}-`;
 			const matches = candidates.filter((path) => path.startsWith(prefix));
 			if (matches.length === 0) break;
-			if (matches.length !== 1 || !this.isPartPath(sessionId, next, matches[0]!)) {
+			const [matchingPath] = matches;
+			if (
+				matches.length !== 1 ||
+				matchingPath === undefined ||
+				!this.isPartPath(sessionId, next, matchingPath)
+			) {
 				await this.quarantineSession(sessionId);
 				throw new Error("Ambiguous uncommitted recording part");
 			}
-			const path = matches[0]!;
+			const path = matchingPath;
 			const data = await this.options.adapter.readBinary(path);
 			const commitPath = `${path}.commit.json`;
 			const sha256 = await hashBytes(data);
@@ -392,11 +439,9 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 	}
 	private async validCommit(sessionId: string, part: RecoveryPart): Promise<boolean> {
 		try {
-			const value = JSON.parse(await this.options.adapter.read(part.commitPath)) as Record<
-				string,
-				unknown
-			>;
+			const value: unknown = JSON.parse(await this.options.adapter.read(part.commitPath));
 			return (
+				isRecord(value) &&
 				value.sessionId === sessionId &&
 				value.index === part.index &&
 				value.size === part.size &&
@@ -428,7 +473,9 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 		await (
 			this.options.delay ??
 			(async (ms) => {
-				const delay = new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+				const delay = new Promise<void>((resolve) => {
+					window.setTimeout(resolve, ms);
+				});
 				await delay;
 			})
 		)(this.options.claimSettleMs ?? 750);
@@ -441,7 +488,9 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 	}
 	private async renewClaim(sessionId: string): Promise<void> {
 		const path = this.ownClaimPath(sessionId);
-		const record = JSON.parse(await this.options.adapter.read(path)) as ClaimRecord;
+		const value: unknown = JSON.parse(await this.options.adapter.read(path));
+		if (!isClaimRecord(value)) throw new Error("Invalid recording recovery claim");
+		const record = value;
 		if (record.epoch !== this.claimEpochs.get(sessionId))
 			throw new Error("Recording recovery claim epoch changed");
 		await this.options.adapter.write(
@@ -468,10 +517,11 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 			item.endsWith(".json"),
 		)) {
 			try {
-				const value = JSON.parse(await this.options.adapter.read(path)) as ClaimRecord;
+				const value: unknown = JSON.parse(await this.options.adapter.read(path));
 				if (
+					!isClaimRecord(value) ||
 					value.sessionId !== sessionId ||
-					!value.installId ||
+					value.installId.length === 0 ||
 					!Number.isFinite(value.createdAt) ||
 					!Number.isFinite(value.expiresAt) ||
 					!Number.isFinite(value.epoch)

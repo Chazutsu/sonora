@@ -2,6 +2,9 @@ import { PluginSettingTab, normalizePath, type SettingDefinitionItem } from "obs
 import { copyFor } from "./i18n";
 import { SONORA_DONATE_URL, SONORA_ISSUES_URL } from "./support";
 import type SonoraPlugin from "./main";
+
+const EN_US = "en-US";
+const JA_JP = "ja-JP";
 import type { SonoraSettings } from "./types";
 
 type SonoraSettingKey = keyof SonoraSettings;
@@ -46,8 +49,8 @@ export class SonoraSettingTab extends PluginSettingTab {
 					key: "language",
 					options: {
 						system: copy.settingsSystem,
-						"en-US": copy.settingsEnglish,
-						"ja-JP": copy.settingsJapanese,
+						[EN_US]: copy.settingsEnglish,
+						[JA_JP]: copy.settingsJapanese,
 					},
 				},
 			},

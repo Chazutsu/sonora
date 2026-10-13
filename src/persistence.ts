@@ -1,6 +1,6 @@
 import {
 	DEFAULT_SETTINGS,
-	type QueueItem,
+	type Chapter,
 	type ReadonlyQueueItem,
 	type PendingVoiceMemoLink,
 	type SonoraData,
@@ -33,10 +33,20 @@ const isFiniteNumber = (value: unknown): value is number =>
 	typeof value === "number" && Number.isFinite(value);
 
 const oneOf = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
-	typeof value === "string" && allowed.includes(value as T) ? (value as T) : fallback;
+	allowed.find((item) => item === value) ?? fallback;
 
 const boundedNumber = (value: unknown, minimum: number, maximum: number, fallback: number) =>
 	isFiniteNumber(value) ? Math.min(maximum, Math.max(minimum, value)) : fallback;
+
+const chapter = (value: unknown): Chapter | null => {
+	if (!isRecord(value)) return null;
+	if (!isString(value.heading) || !isFiniteNumber(value.level) || !isString(value.text))
+		return null;
+	return { heading: value.heading, level: value.level, text: value.text };
+};
+
+const deserializeChapters = (value: unknown): Chapter[] =>
+	Array.isArray(value) ? value.flatMap((item) => chapter(item) ?? []) : [];
 
 function deserializeSettings(value: unknown): SonoraSettings {
 	const settings = isRecord(value) ? value : {};
@@ -127,10 +137,7 @@ export function deserializeData(value: unknown): SonoraData {
 		? input.queue.flatMap((item) => {
 				const stored = storedQueueItem(item);
 				if (!stored) return [];
-				const legacyChapters =
-					isRecord(item) && Array.isArray(item.chapters)
-						? (item.chapters as QueueItem["chapters"])
-						: [];
+				const legacyChapters = isRecord(item) ? deserializeChapters(item.chapters) : [];
 				return [{ ...stored, chapters: legacyChapters }];
 			})
 		: [];
@@ -168,14 +175,13 @@ export function serializeData(data: ReadonlySonoraData): StoredSonoraData {
 	return {
 		schemaVersion: CURRENT_SCHEMA_VERSION,
 		settings: { ...data.settings },
-		queue: data.queue.map(
-			({
-				chapters: _chapters,
-				unavailable: _unavailable,
-				loadError: _loadError,
-				...item
-			}): StoredQueueItem => item,
-		),
+		queue: data.queue.map((item): StoredQueueItem => {
+			const storedItem = { ...item };
+			Reflect.deleteProperty(storedItem, "chapters");
+			Reflect.deleteProperty(storedItem, "unavailable");
+			Reflect.deleteProperty(storedItem, "loadError");
+			return storedItem;
+		}),
 		activeItemId: data.activeItemId,
 		upNextItemId: data.upNextItemId,
 		pendingVoiceMemoLinks: data.pendingVoiceMemoLinks.map(

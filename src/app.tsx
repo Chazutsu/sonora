@@ -42,6 +42,10 @@ type LibraryStatus = "all" | "unplayed" | "in-progress" | "completed";
 type LibrarySort = "manual" | "recent" | "progress";
 
 type ChapterMatch = { heading: string; index: number };
+type ChapterSearchItem = {
+	readonly title: string;
+	readonly chapters: readonly { readonly heading: string }[];
+};
 type EscapeKeyEvent = { readonly key: string; readonly preventDefault: () => void };
 type PointerTargetEvent = { readonly target: unknown };
 type ValueEvent = { readonly target: { readonly value: string } };
@@ -53,8 +57,49 @@ type BlurContainmentEvent = {
 	readonly currentTarget: { readonly contains: (target: Node | null) => boolean };
 	readonly relatedTarget: Node | null;
 };
+type MediaQueryView = {
+	readonly matches: boolean;
+	readonly addEventListener?: (type: "change", listener: () => void) => void;
+	readonly removeEventListener?: (type: "change", listener: () => void) => void;
+};
 
-function matchingChapter(item: ReadonlyQueueItem, query: string): ChapterMatch | null {
+const desktopPointerQuery = (ownerWindow: Readonly<object>): MediaQueryView | null => {
+	const matchMedia: unknown = Reflect.get(ownerWindow, "matchMedia");
+	if (typeof matchMedia !== "function") return null;
+	const result: unknown = Reflect.apply(matchMedia, ownerWindow, [
+		"(min-width: 761px) and (pointer: fine)",
+	]);
+	if (typeof result !== "object" || result === null || !("matches" in result)) return null;
+	const { matches } = result;
+	if (typeof matches !== "boolean") return null;
+	const addEventListener: unknown = Reflect.get(result, "addEventListener");
+	const removeEventListener: unknown = Reflect.get(result, "removeEventListener");
+	return {
+		get matches() {
+			return Reflect.get(result, "matches") === true;
+		},
+		addEventListener:
+			typeof addEventListener === "function"
+				? (type, listener) => {
+						Reflect.apply(addEventListener, result, [type, listener]);
+					}
+				: undefined,
+		removeEventListener:
+			typeof removeEventListener === "function"
+				? (type, listener) => {
+						Reflect.apply(removeEventListener, result, [type, listener]);
+					}
+				: undefined,
+	};
+};
+
+const isLibraryStatus = (value: string): value is LibraryStatus =>
+	value === "all" || value === "unplayed" || value === "in-progress" || value === "completed";
+
+const isLibrarySort = (value: string): value is LibrarySort =>
+	value === "manual" || value === "recent" || value === "progress";
+
+function matchingChapter(item: ChapterSearchItem, query: string): ChapterMatch | null {
 	if (!query || item.title.toLocaleLowerCase().includes(query)) return null;
 	const index = item.chapters.findIndex((candidate) =>
 		candidate.heading.toLocaleLowerCase().includes(query),
@@ -71,7 +116,8 @@ function handleMobileControlsKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) 
 	);
 	if (!tabStops.length) return;
 	if (event.key === "Tab") {
-		const target = event.target as HTMLElement;
+		const { target } = event;
+		if (!(target instanceof HTMLElement)) return;
 		if (event.shiftKey && target === tabStops[0]) {
 			event.preventDefault();
 			tabStops.at(-1)?.focus();
@@ -85,9 +131,8 @@ function handleMobileControlsKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) 
 	const controls = Array.from(
 		event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
 	);
-	const current = controls.indexOf(
-		event.currentTarget.ownerDocument.activeElement as HTMLButtonElement,
-	);
+	const { activeElement } = event.currentTarget.ownerDocument;
+	const current = activeElement instanceof HTMLButtonElement ? controls.indexOf(activeElement) : -1;
 	const next =
 		event.key === "ArrowDown"
 			? (current + 1 + controls.length) % controls.length
@@ -100,7 +145,7 @@ function handleMobileControlsKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) 
 						: -1;
 	if (next < 0) return;
 	event.preventDefault();
-	controls[next]?.focus();
+	controls.at(next)?.focus();
 }
 
 export type SonoraAppProps = {
@@ -159,7 +204,7 @@ export function activeItemAfterRemoval(
 	return queue[Math.min(removedIndex, queue.length - 1)]?.id ?? null;
 }
 
-function QueuePanel({
+const queuePanel = ({
 	sections,
 	copy,
 	onMove,
@@ -176,7 +221,7 @@ function QueuePanel({
 	) => void;
 	onPlay: (id: string) => void;
 	onSetNext: (id: string) => void;
-}>) {
+}>) => {
 	const row = (item: ReadonlyQueueItem, status: string, actions = false, index = -1) => {
 		const chapter = item.chapters[item.chapterIndex];
 		const previous = sections.following[index - 1];
@@ -278,9 +323,9 @@ function QueuePanel({
 			) : null}
 		</section>
 	);
-}
+};
 
-export function SonoraApp(props: Readonly<SonoraAppProps>) {
+const sonoraApp = (props: Readonly<SonoraAppProps>) => {
 	const appRoot = useRef<HTMLElement>(null);
 	const undoButton = useRef<HTMLButtonElement>(null);
 	const undoHadFocus = useRef(false);
@@ -298,9 +343,7 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 	const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
 	const [reorderAnnouncement, setReorderAnnouncement] = useState("");
 	const [desktopDnDEnabled, setDesktopDnDEnabled] = useState(
-		() =>
-			typeof window !== "undefined" &&
-			window.matchMedia?.("(min-width: 761px) and (pointer: fine)").matches === true,
+		() => typeof window !== "undefined" && desktopPointerQuery(window)?.matches === true,
 	);
 	const mobileAdd = useRef<HTMLDetailsElement>(null);
 	const mobileAddTrigger = useRef<HTMLElement>(null);
@@ -425,8 +468,8 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 	}, [focusUndoId]);
 
 	useEffect(() => {
-		if (window.matchMedia === undefined) return;
-		const query = window.matchMedia("(min-width: 761px) and (pointer: fine)");
+		const query = desktopPointerQuery(window);
+		if (query === null) return undefined;
 		const update = () => {
 			setDesktopDnDEnabled(query.matches);
 		};
@@ -480,7 +523,10 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 			closeMobileAdd(true);
 		};
 		const handlePointerDown = (event: PointerTargetEvent) => {
-			if (mobileAdd.current?.open !== true || mobileAdd.current.contains(event.target as Node))
+			if (
+				mobileAdd.current?.open !== true ||
+				(event.target instanceof Node && mobileAdd.current.contains(event.target))
+			)
 				return;
 			closeMobileAdd(true);
 		};
@@ -794,7 +840,7 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 						</div>
 					</div>
 				) : queueOpen ? (
-					<QueuePanel
+					<components.queuePanel
 						sections={listeningQueue}
 						copy={props.copy}
 						onMove={(id, targetId, placement, direction) =>
@@ -921,7 +967,7 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 						) : (
 							active &&
 							chapter && (
-								<LyricsCard
+								<components.lyricsCard
 									readingNow={props.copy.readingNow}
 									readyToRead={props.copy.readyToRead}
 									lyricsView={props.copy.lyricsView}
@@ -992,7 +1038,8 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 											aria-label={props.copy.statusFilter}
 											value={libraryStatus}
 											onChange={(event: ValueEvent) => {
-												setLibraryStatus(event.target.value as LibraryStatus);
+												if (isLibraryStatus(event.target.value))
+													setLibraryStatus(event.target.value);
 											}}
 										>
 											<option value="all">{props.copy.statusAll}</option>
@@ -1004,7 +1051,7 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 											aria-label={props.copy.sortLibrary}
 											value={librarySort}
 											onChange={(event: ValueEvent) => {
-												setLibrarySort(event.target.value as LibrarySort);
+												if (isLibrarySort(event.target.value)) setLibrarySort(event.target.value);
 											}}
 										>
 											<option value="manual">{props.copy.sortManual}</option>
@@ -1671,7 +1718,7 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 			)}
 		</main>
 	);
-}
+};
 
 export function activeLyricIndex(lines: readonly string[], offset: number): number {
 	if (!lines.length) return -1;
@@ -1683,7 +1730,7 @@ export function activeLyricIndex(lines: readonly string[], offset: number): numb
 	return index === -1 ? lines.length - 1 : index;
 }
 
-export function LyricsCard({
+const lyricsCard = ({
 	title,
 	kind,
 	readingNow = "Reading now",
@@ -1701,7 +1748,7 @@ export function LyricsCard({
 	text: string;
 	offset: number;
 	playing: boolean;
-}>) {
+}>) => {
 	const lines = speechProgressLines(text);
 	const activeIndex = activeLyricIndex(lines, offset);
 	const activeLine = lines[activeIndex] ?? "";
@@ -1760,4 +1807,7 @@ export function LyricsCard({
 			</div>
 		</section>
 	);
-}
+};
+
+const components = { queuePanel, lyricsCard };
+export { lyricsCard as LyricsCard, sonoraApp as SonoraApp };

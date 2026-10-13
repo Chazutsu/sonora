@@ -53,6 +53,9 @@ type ReadonlyJournalManifest = Omit<
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
+const isNonNegativeSafeInteger = (value: unknown): value is number =>
+	typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+
 const isEnvelope = (value: unknown): value is JournalEnvelope =>
 	isRecord(value) &&
 	value.journalVersion === 3 &&
@@ -76,17 +79,13 @@ const isLegacyEnvelope = (value: unknown): value is LegacyEnvelope =>
 const isManifest = (value: unknown): value is JournalManifest => {
 	if (!isRecord(value) || value.manifestVersion !== 1) return false;
 	if (typeof value.manifestId !== "string" || !value.manifestId) return false;
-	if (!Number.isSafeInteger(value.nextSequence) || (value.nextSequence as number) < 0) return false;
-	if (!Number.isSafeInteger(value.committedSequence) || (value.committedSequence as number) < 0)
-		return false;
+	if (!isNonNegativeSafeInteger(value.nextSequence)) return false;
+	if (!isNonNegativeSafeInteger(value.committedSequence)) return false;
 	if (!isRecord(value.pending) || !Array.isArray(value.committedOperationIds)) return false;
 	if (!value.committedOperationIds.every((id) => typeof id === "string")) return false;
 	return Object.values(value.pending).every(
 		(entry) =>
-			isRecord(entry) &&
-			typeof entry.path === "string" &&
-			Number.isSafeInteger(entry.sequence) &&
-			(entry.sequence as number) >= 0,
+			isRecord(entry) && typeof entry.path === "string" && isNonNegativeSafeInteger(entry.sequence),
 	);
 };
 
@@ -94,7 +93,7 @@ const isPreviousManifest = (
 	value: unknown,
 ): value is Omit<JournalManifest, "manifestId" | "committedSequence"> => {
 	if (!isRecord(value) || value.manifestVersion !== 1) return false;
-	if (!Number.isSafeInteger(value.nextSequence) || (value.nextSequence as number) < 0) return false;
+	if (!isNonNegativeSafeInteger(value.nextSequence)) return false;
 	if (!isRecord(value.pending) || !Array.isArray(value.committedOperationIds)) return false;
 	return value.committedOperationIds.every((id) => typeof id === "string");
 };
@@ -113,7 +112,8 @@ const canonicalJson = (value: unknown): string => {
 			.toSorted()
 			.map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
 			.join(",")}}`;
-	return JSON.stringify(value) ?? "undefined";
+	const serialized: unknown = JSON.stringify(value);
+	return typeof serialized === "string" ? serialized : "undefined";
 };
 
 /** A manifest-indexed WAL. Any incomplete view fails closed instead of guessing. */

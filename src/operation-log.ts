@@ -53,7 +53,16 @@ const QUEUE_FIELDS = [
 	"loop",
 ] as const satisfies readonly (keyof StoredQueueItem)[];
 
-const SETTINGS_FIELDS = Object.keys(DEFAULT_SETTINGS) as (keyof typeof DEFAULT_SETTINGS)[];
+const SETTINGS_FIELDS = [
+	"interfaceLanguage",
+	"language",
+	"rate",
+	"pitch",
+	"voiceName",
+	"recordingFolder",
+	"appendVoiceMemoLink",
+	"recallDelaySeconds",
+] as const satisfies readonly (keyof typeof DEFAULT_SETTINGS)[];
 
 const queueEntityId = (id: string) => `${QUEUE_ENTITY_PREFIX}${encodeURIComponent(id)}`;
 
