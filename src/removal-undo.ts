@@ -1,5 +1,5 @@
 import { sameVaultPath } from "./persistence";
-import type { QueueItem } from "./types";
+import type { QueueItem, ReadonlyQueueItem } from "./types";
 
 export const DEFAULT_REMOVAL_UNDO_DURATION_MS = 30_000;
 
@@ -13,6 +13,10 @@ export type RemovalUndoEntry = {
 	expiresAt: number;
 };
 
+type ReadonlyRemovalUndoEntry = Omit<Readonly<RemovalUndoEntry>, "item"> & {
+	readonly item: ReadonlyQueueItem;
+};
+
 export class RemovalUndoHistory {
 	private entries: RemovalUndoEntry[] = [];
 
@@ -22,7 +26,7 @@ export class RemovalUndoHistory {
 	) {}
 
 	record(
-		item: QueueItem,
+		item: ReadonlyQueueItem,
 		index: number,
 		wasActive: boolean,
 		fallbackActiveItemId: string | null,
@@ -49,14 +53,16 @@ export class RemovalUndoHistory {
 
 	take(id: string): RemovalUndoEntry | null {
 		this.prune();
-		const index = this.entries.findLastIndex((entry) => entry.id === id);
+		const index = this.entries.findLastIndex((entry: ReadonlyRemovalUndoEntry) => entry.id === id);
 		if (index < 0) return null;
 		return this.entries.splice(index, 1)[0] ?? null;
 	}
 
 	nextExpiry(): number | null {
 		this.prune();
-		return this.entries.length ? Math.min(...this.entries.map((entry) => entry.expiresAt)) : null;
+		return this.entries.length
+			? Math.min(...this.entries.map((entry: ReadonlyRemovalUndoEntry) => entry.expiresAt))
+			: null;
 	}
 
 	clear(): void {
@@ -77,15 +83,15 @@ export class RemovalUndoHistory {
 
 	private prune(): void {
 		const now = this.now();
-		this.entries = this.entries.filter((entry) => entry.expiresAt > now);
+		this.entries = this.entries.filter((entry: ReadonlyRemovalUndoEntry) => entry.expiresAt > now);
 	}
 }
 
-export function restoreRemovedItem(
-	queue: readonly QueueItem[],
-	entry: RemovalUndoEntry,
-	refreshedItem: QueueItem,
-): QueueItem[] | null {
+export function restoreRemovedItem<Item extends ReadonlyQueueItem>(
+	queue: readonly Item[],
+	entry: ReadonlyRemovalUndoEntry,
+	refreshedItem: Item,
+): Item[] | null {
 	const conflicts = queue.some(
 		(item) =>
 			item.id === entry.item.id ||
@@ -100,12 +106,12 @@ export function restoreRemovedItem(
 }
 
 export function shouldRestoreRemovedAsActive(
-	entry: RemovalUndoEntry,
+	entry: ReadonlyRemovalUndoEntry,
 	currentActiveItemId: string | null,
 ): boolean {
 	return entry.wasActive && currentActiveItemId === entry.fallbackActiveItemId;
 }
 
-function cloneQueueItem(item: QueueItem): QueueItem {
+function cloneQueueItem(item: ReadonlyQueueItem): QueueItem {
 	return { ...item, chapters: item.chapters.map((chapter) => ({ ...chapter })) };
 }

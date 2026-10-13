@@ -9,10 +9,10 @@ export function hasVoiceMemoLink(markdown: string, audioPath: string): boolean {
 	return markdown.includes(`![[${audioPath}]]`);
 }
 
-export function addPendingVoiceMemoLink(
-	pending: readonly PendingVoiceMemoLink[],
-	entry: PendingVoiceMemoLink,
-): PendingVoiceMemoLink[] {
+export function addPendingVoiceMemoLink<Item extends Readonly<PendingVoiceMemoLink>>(
+	pending: readonly Item[],
+	entry: Item,
+): Item[] {
 	const withoutDuplicate = pending.filter(
 		(item) =>
 			!sameVaultPath(item.audioPath, entry.audioPath) ||
@@ -21,11 +21,11 @@ export function addPendingVoiceMemoLink(
 	return [...withoutDuplicate, entry].slice(-MAX_PENDING_VOICE_MEMO_LINKS);
 }
 
-export function removePendingVoiceMemoLink(
-	pending: readonly PendingVoiceMemoLink[],
+export function removePendingVoiceMemoLink<Item extends Readonly<PendingVoiceMemoLink>>(
+	pending: readonly Item[],
 	audioPath: string,
 	sourcePath: string,
-): PendingVoiceMemoLink[] {
+): Item[] {
 	return pending.filter(
 		(item) =>
 			!sameVaultPath(item.audioPath, audioPath) || !sameVaultPath(item.sourcePath, sourcePath),
@@ -33,7 +33,7 @@ export function removePendingVoiceMemoLink(
 }
 
 export function renamePendingVoiceMemoPaths(
-	pending: readonly PendingVoiceMemoLink[],
+	pending: readonly Readonly<PendingVoiceMemoLink>[],
 	oldPath: string,
 	path: string,
 ): PendingVoiceMemoLink[] {

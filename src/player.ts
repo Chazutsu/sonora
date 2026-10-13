@@ -4,7 +4,7 @@ import {
 	reduceBoundaryProgress,
 	type BoundaryThrottleState,
 } from "./progress-throttle";
-import type { QueueItem } from "./types";
+import type { ReadonlyQueueItem } from "./types";
 
 export type PlayerState = "idle" | "playing" | "paused" | "error";
 
@@ -20,10 +20,10 @@ export type SpeechOptions = {
  * Drills require an explicit choice because their prompt/answer flow must not
  * be entered as a side effect of finishing another note.
  */
-export function nextUnfinishedQueueItem(
-	queue: readonly QueueItem[],
+export function nextUnfinishedQueueItem<Item extends ReadonlyQueueItem>(
+	queue: readonly Item[],
 	currentItemId: string,
-): QueueItem | null {
+): Item | null {
 	const currentIndex = queue.findIndex((item) => item.id === currentItemId);
 	if (currentIndex < 0) return null;
 	if (queue[currentIndex]?.kind === "drill") return null;
@@ -50,7 +50,7 @@ export class SpeechPlayer {
 	private progressThrottle: BoundaryThrottleState = initialBoundaryThrottleState();
 
 	constructor(
-		private readonly synthesis: SpeechSynthesis,
+		private readonly synthesis: Readonly<SpeechSynthesis>,
 		private readonly utteranceFactory: () => SpeechSynthesisUtterance,
 		private readonly onStateChange: (state: PlayerState) => void,
 		private readonly onEnded: () => void,
@@ -60,7 +60,7 @@ export class SpeechPlayer {
 		private readonly boundaryIntervalMs = 80,
 	) {}
 
-	play(text: string, options: SpeechOptions): void {
+	play(text: string, options: Readonly<SpeechOptions>): void {
 		this.stop(false);
 		this.chunks = splitForSpeech(text);
 		if (!this.chunks.length) {
@@ -109,7 +109,7 @@ export class SpeechPlayer {
 		return this.state;
 	}
 
-	private speakCurrent(options: SpeechOptions, generation: number): void {
+	private speakCurrent(options: Readonly<SpeechOptions>, generation: number): void {
 		const text = this.chunks[this.chunkIndex];
 		if (!text) {
 			this.setState("idle");
@@ -123,7 +123,7 @@ export class SpeechPlayer {
 		utterance.lang = languageForText(text, options.lang);
 		utterance.voice = selectVoice(this.synthesis.getVoices(), utterance.lang, options.voiceName);
 		this.reportProgress(this.chunkOffsets[this.chunkIndex] ?? 0, true);
-		utterance.addEventListener("boundary", (event) => {
+		utterance.addEventListener("boundary", (event: Readonly<SpeechSynthesisEvent>) => {
 			if (generation !== this.generation) return;
 			this.reportProgress((this.chunkOffsets[this.chunkIndex] ?? 0) + event.charIndex);
 		});
@@ -132,7 +132,7 @@ export class SpeechPlayer {
 			this.chunkIndex += 1;
 			this.speakCurrent(options, generation);
 		});
-		utterance.addEventListener("error", (event) => {
+		utterance.addEventListener("error", (event: Readonly<SpeechSynthesisErrorEvent>) => {
 			if (generation !== this.generation) return;
 			// Some Web Speech implementations dispatch `end` after `error`. Make
 			// every callback belonging to this utterance stale before notifying UI.
@@ -164,17 +164,17 @@ export function languageForText(text: string, fallback: string): string {
 	return /[ぁ-んァ-ヶ一-龯]/u.test(text) ? "ja-JP" : fallback;
 }
 
-export function selectVoice(
-	voices: SpeechSynthesisVoice[],
+export function selectVoice<Voice extends Readonly<SpeechSynthesisVoice>>(
+	voices: readonly Voice[],
 	language: string,
 	preferredName: string,
-): SpeechSynthesisVoice | null {
+): Voice | null {
 	const base = language.toLowerCase().split("-")[0] ?? language.toLowerCase();
 	const preferred = voices.find(
 		(voice) => voice.name === preferredName && voice.lang.toLowerCase().startsWith(base),
 	);
 	if (preferred) return preferred;
-	const quality = (voice: SpeechSynthesisVoice) =>
+	const quality = (voice: Voice) =>
 		(/premium|enhanced|siri|kyoko|otoya|samantha|daniel/iu.test(voice.name) ? 4 : 0) +
 		(voice.localService ? 2 : 0) +
 		(voice.lang.toLowerCase() === language.toLowerCase() ? 1 : 0);
