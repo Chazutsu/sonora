@@ -11,6 +11,7 @@ import {
 } from "obsidian";
 import { createRoot, type Root } from "react-dom/client";
 import { SonoraApp, activeItemAfterRemoval } from "./app";
+import { SONORA_COMMAND_IDS } from "./commands";
 import { chaptersFromMarkdown, coverReferenceFromMarkdown } from "./content";
 import { copyFor, recordingSaveMessages } from "./i18n";
 import {
@@ -153,7 +154,7 @@ class SonoraView extends ItemView {
 					void this.plugin.remove(id, focusUndo ? this : null, nextVisibleItemId)
 				}
 				onUndoRemove={(id) => this.plugin.undoRemove(id)}
-				onDismissRemove={(id) => this.plugin.dismissRemove(id)}
+				onDismissRemove={(id) => void this.plugin.dismissRemove(id)}
 				onPlayPause={(id) => this.plugin.playPause(id)}
 				onPrevious={(id) => void this.plugin.previous(id)}
 				onNext={(id) => void this.plugin.next(id)}
@@ -250,7 +251,6 @@ class SonoraSettingTab extends PluginSettingTab {
 				slider
 					.setLimits(1, 10, 1)
 					.setValue(this.plugin.data.settings.recallDelaySeconds)
-					.setDynamicTooltip()
 					.onChange((value) => void this.plugin.updateSettings({ recallDelaySeconds: value })),
 			);
 		new Setting(this.containerEl)
@@ -481,7 +481,7 @@ export default class SonoraPlugin extends Plugin {
 		});
 		this.addRibbonIcon("headphones", copy.openSonora, () => void this.activateView());
 		this.addCommand({
-			id: "open-sonora",
+			id: SONORA_COMMAND_IDS.openWorkspace,
 			name: copy.commandOpenWorkspace,
 			callback: () => void this.activateView(),
 		});
@@ -540,7 +540,6 @@ export default class SonoraPlugin extends Plugin {
 		this.player?.stop();
 		this.recordingSession?.unload();
 		this.clearMediaSession();
-		this.app.workspace.detachLeavesOfType(VIEW_TYPE);
 	}
 
 	async activateView() {

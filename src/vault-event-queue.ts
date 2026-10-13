@@ -1,5 +1,5 @@
 export interface VaultEventDescriptor {
-	readonly type: "create" | "modify" | "rename" | "delete" | string;
+	readonly type: string;
 	readonly path: string;
 }
 

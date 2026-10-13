@@ -1489,7 +1489,7 @@ export function SonoraApp(props: SonoraAppProps) {
 						undoHadFocus.current = true;
 					}}
 					onBlurCapture={(event) => {
-						if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+						if (!event.currentTarget.contains(event.relatedTarget)) {
 							undoHadFocus.current = false;
 						}
 					}}
@@ -1500,9 +1500,10 @@ export function SonoraApp(props: SonoraAppProps) {
 					<button
 						ref={undoButton}
 						type="button"
-						onClick={async () => {
-							await props.onUndoRemove(removalUndo.id);
-							focusLibraryItem(removalUndo.id);
+						onClick={() => {
+							void Promise.resolve(props.onUndoRemove(removalUndo.id)).then(() => {
+								focusLibraryItem(removalUndo.id);
+							});
 						}}
 					>
 						{props.copy.undo}
@@ -1511,9 +1512,10 @@ export function SonoraApp(props: SonoraAppProps) {
 						type="button"
 						className="sonora-undo-dismiss"
 						aria-label={props.copy.dismissUndo}
-						onClick={async () => {
-							await props.onDismissRemove(removalUndo.id);
-							focusLibraryItem(removalUndo.returnFocusItemId);
+						onClick={() => {
+							void Promise.resolve(props.onDismissRemove(removalUndo.id)).then(() => {
+								focusLibraryItem(removalUndo.returnFocusItemId);
+							});
 						}}
 					>
 						<X size={18} />
