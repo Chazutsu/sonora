@@ -150,7 +150,12 @@ export function activeItemAfterRemoval(
 	removedIndex: number,
 	preferredItemId: string | null,
 ): string | null {
-	if (preferredItemId && queue.some((item) => item.id === preferredItemId)) return preferredItemId;
+	if (
+		preferredItemId !== null &&
+		preferredItemId !== "" &&
+		queue.some((item) => item.id === preferredItemId)
+	)
+		return preferredItemId;
 	return queue[Math.min(removedIndex, queue.length - 1)]?.id ?? null;
 }
 
@@ -186,7 +191,7 @@ function QueuePanel({
 					}}
 				>
 					<span className="sonora-queue-art">
-						{item.coverUrl ? (
+						{item.coverUrl !== undefined ? (
 							<img src={item.coverUrl} alt="" />
 						) : (
 							<Play size={17} fill="currentColor" />
@@ -349,8 +354,8 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 	const activeOutsideFilters = active !== null && !filtered.some((item) => item.id === active.id);
 	const noteCount = props.queue.filter((item) => item.kind !== "drill").length;
 	const drillCount = props.queue.filter((item) => item.kind === "drill").length;
-	const removalUndo = props.removalUndo;
-	const focusUndoId = removalUndo?.focusUndo ? removalUndo.id : null;
+	const { removalUndo } = props;
+	const focusUndoId = removalUndo?.focusUndo === true ? removalUndo.id : null;
 	const normalizedLibraryQuery = libraryQuery.trim().toLocaleLowerCase();
 	const resumable = useMemo(() => continueListening(props.queue, 4), [props.queue]);
 	const listeningQueue = useMemo(
@@ -416,11 +421,11 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 	);
 
 	useEffect(() => {
-		if (focusUndoId) undoButton.current?.focus();
+		if (focusUndoId !== null && focusUndoId !== "") undoButton.current?.focus();
 	}, [focusUndoId]);
 
 	useEffect(() => {
-		if (!window.matchMedia) return;
+		if (window.matchMedia === undefined) return;
 		const query = window.matchMedia("(min-width: 761px) and (pointer: fine)");
 		const update = () => {
 			setDesktopDnDEnabled(query.matches);
@@ -470,12 +475,13 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 		const ownerDocument = mobileAdd.current?.ownerDocument;
 		if (!ownerDocument) return () => undefined;
 		const handleKeyDown = (event: EscapeKeyEvent) => {
-			if (event.key !== "Escape" || !mobileAdd.current?.open) return;
+			if (event.key !== "Escape" || mobileAdd.current?.open !== true) return;
 			event.preventDefault();
 			closeMobileAdd(true);
 		};
 		const handlePointerDown = (event: PointerTargetEvent) => {
-			if (!mobileAdd.current?.open || mobileAdd.current.contains(event.target as Node)) return;
+			if (mobileAdd.current?.open !== true || mobileAdd.current.contains(event.target as Node))
+				return;
 			closeMobileAdd(true);
 		};
 
@@ -502,11 +508,11 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 			closeMobileControls(true);
 		};
 		const handlePointerDown = (event: PointerTargetEvent) => {
-			const target = event.target;
+			const { target } = event;
 			if (!(target instanceof Node)) return;
 			if (
-				mobileControlsPopover.current?.contains(target) ||
-				mobileControlsTrigger.current?.contains(target)
+				mobileControlsPopover.current?.contains(target) === true ||
+				mobileControlsTrigger.current?.contains(target) === true
 			) {
 				return;
 			}
@@ -532,11 +538,11 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 			closeMobileFilters(true);
 		};
 		const handlePointerDown = (event: PointerTargetEvent) => {
-			const target = event.target;
+			const { target } = event;
 			if (!(target instanceof Node)) return;
 			if (
-				mobileFiltersPopover.current?.contains(target) ||
-				mobileFiltersTrigger.current?.contains(target)
+				mobileFiltersPopover.current?.contains(target) === true ||
+				mobileFiltersTrigger.current?.contains(target) === true
 			)
 				return;
 			closeMobileFilters(false);
@@ -550,7 +556,7 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 	}, [closeMobileFilters, mobileFiltersOpen]);
 
 	useEffect(() => {
-		if (!rowMenuItemId) return;
+		if (rowMenuItemId === null || rowMenuItemId === "") return;
 		const ownerDocument = rowMenuPopover.current?.ownerDocument;
 		if (!ownerDocument) return;
 		rowMenuPopover.current?.querySelector<HTMLElement>("button:not(:disabled)")?.focus();
@@ -560,9 +566,12 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 			closeRowMenu(true);
 		};
 		const handlePointerDown = (event: PointerTargetEvent) => {
-			const target = event.target;
+			const { target } = event;
 			if (!(target instanceof Node)) return;
-			if (rowMenuPopover.current?.contains(target) || rowMenuTrigger.current?.contains(target))
+			if (
+				rowMenuPopover.current?.contains(target) === true ||
+				rowMenuTrigger.current?.contains(target) === true
+			)
 				return;
 			closeRowMenu(false);
 		};
@@ -661,7 +670,7 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 			</aside>
 
 			<section className="sonora-content">
-				{props.playbackError && (
+				{props.playbackError !== null && props.playbackError !== "" && (
 					<div className="sonora-error" role="alert">
 						{props.playbackError}
 						<button
@@ -1041,11 +1050,21 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 													setDraggedItemId(null);
 												}}
 												onDragOver={(event) => {
-													if (draggedItemId && draggedItemId !== item.id) event.preventDefault();
+													if (
+														draggedItemId !== null &&
+														draggedItemId !== "" &&
+														draggedItemId !== item.id
+													)
+														event.preventDefault();
 												}}
 												onDrop={(event) => {
 													event.preventDefault();
-													if (!draggedItemId || draggedItemId === item.id) return;
+													if (
+														draggedItemId === null ||
+														draggedItemId === "" ||
+														draggedItemId === item.id
+													)
+														return;
 													const sourceIndex = filtered.findIndex(({ id }) => id === draggedItemId);
 													const direction = sourceIndex < index ? "down" : "up";
 													void moveItem(
@@ -1077,7 +1096,7 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 													>
 														{item.kind === "drill" ? (
 															<Languages size={20} />
-														) : item.coverUrl ? (
+														) : item.coverUrl !== undefined ? (
 															<img src={item.coverUrl} alt="" />
 														) : (
 															<Play size={18} fill="currentColor" />
@@ -1107,13 +1126,13 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 																			"{heading}",
 																			chapterMatch.heading,
 																		)
-																	: item.unavailable
+																	: item.unavailable === true
 																		? props.copy.sourceUnavailable
 																		: (current?.heading ?? props.copy.readyToPlay)}
 															</small>
 															<span className="sonora-row-progress">
-																{item.unavailable ? (
-																	item.loadError ? (
+																{item.unavailable === true ? (
+																	item.loadError === true ? (
 																		props.copy.loadFailed
 																	) : (
 																		props.copy.unavailable
@@ -1375,7 +1394,7 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 								<span className={`sonora-player-art ${active.kind === "drill" ? "is-drill" : ""}`}>
 									{active.kind === "drill" ? (
 										<Languages size={22} />
-									) : active.coverUrl ? (
+									) : active.coverUrl !== undefined ? (
 										<img src={active.coverUrl} alt="" />
 									) : (
 										<FileAudio size={22} />
@@ -1406,7 +1425,7 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 							<div className="sonora-player-controls">
 								{active.kind === "drill" && (
 									<button
-										className={`sonora-control-loop ${active.loop ? "is-on" : ""}`}
+										className={`sonora-control-loop ${active.loop === true ? "is-on" : ""}`}
 										onClick={() => {
 											props.onToggleLoop(active.id);
 										}}
@@ -1540,7 +1559,7 @@ export function SonoraApp(props: Readonly<SonoraAppProps>) {
 							>
 								{active.kind === "drill" && (
 									<button
-										className={active.loop ? "is-on" : ""}
+										className={active.loop === true ? "is-on" : ""}
 										onClick={() => {
 											props.onToggleLoop(active.id);
 										}}
@@ -1714,13 +1733,13 @@ export function LyricsCard({
 		<section className="sonora-lyrics" aria-label={lyricsView}>
 			<div className="sonora-lyrics-heading">
 				<span>
-					{title
+					{title !== undefined && title !== ""
 						? `${playing ? readingNow : readyToRead} · ${title}`
 						: playing
 							? readingNow
 							: readyToRead}
 				</span>
-				{kind && <em>{kind}</em>}
+				{kind !== undefined && kind !== "" && <em>{kind}</em>}
 			</div>
 			<div className="sonora-lyrics-lines" ref={linesContainer}>
 				{contextLines.map((line, contextIndex) => {

@@ -197,7 +197,7 @@ export class RecordingSession<Context extends Readonly<Record<string, unknown>>>
 		this.disposed = true;
 		this.unloading = true;
 		this.clearLimitTimer();
-		const recorder = this.recorder;
+		const { recorder } = this;
 		if (recorder?.state === "recording" && !this.stopRequested) {
 			this.stopRequested = true;
 			this.transition("stopping");
@@ -258,11 +258,16 @@ export class RecordingSession<Context extends Readonly<Record<string, unknown>>>
 
 	private async finish(generation: number): Promise<void> {
 		if (!this.isSessionGeneration(generation) || this.phase !== "stopping") return;
-		const recorder = this.recorder;
-		const context = this.context;
+		const { recorder } = this;
+		const { context } = this;
 		const stoppedAt = this.now();
 		const chunks = [...this.chunks];
-		const mimeType = recorder?.mimeType || chunks[0]?.type || "audio/webm";
+		const mimeType =
+			recorder?.mimeType !== undefined && recorder.mimeType !== ""
+				? recorder.mimeType
+				: chunks[0]?.type !== undefined && chunks[0].type !== ""
+					? chunks[0].type
+					: "audio/webm";
 		this.detachRecorder();
 		this.stopTracks(this.stream);
 		this.stream = null;
@@ -289,7 +294,7 @@ export class RecordingSession<Context extends Readonly<Record<string, unknown>>>
 
 		try {
 			await this.checkpointQueue;
-			if (this.checkpointError) throw this.checkpointError;
+			if (this.checkpointError !== null) throw this.checkpointError;
 			await this.options.onCheckpointReady?.(payload);
 			if (this.unloading) return;
 			await this.options.onSave(payload);

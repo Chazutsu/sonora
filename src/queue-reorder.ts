@@ -35,7 +35,7 @@ export function moveQueueItemAmongVisibleIds<Queue extends readonly ReadonlyQueu
 ): Queue | Queue[number][] {
 	const sourceIndex = visibleIds.indexOf(sourceId);
 	const targetId = direction === "up" ? visibleIds[sourceIndex - 1] : visibleIds[sourceIndex + 1];
-	if (sourceIndex < 0 || !targetId) return queue;
+	if (sourceIndex < 0 || targetId === undefined || targetId === "") return queue;
 	return reorderQueueById(queue, sourceId, targetId, direction === "up" ? "before" : "after");
 }
 

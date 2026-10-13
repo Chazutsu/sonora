@@ -113,7 +113,9 @@ class NotePickerModal extends FuzzySuggestModal<TFile> {
 	}
 	getItemText(file: Readonly<TFile>) {
 		const folder = file.parent?.path;
-		return folder && folder !== "/" ? `${file.basename} — ${folder}` : file.basename;
+		return folder !== undefined && folder !== "" && folder !== "/"
+			? `${file.basename} — ${folder}`
+			: file.basename;
 	}
 	onChooseItem(file: Readonly<TFile>) {
 		this.onChoose(file);
@@ -386,7 +388,7 @@ export default class SonoraPlugin extends Plugin {
 		this.registerEvent(
 			this.app.vault.on("delete", (file) => {
 				if (file instanceof TFile) {
-					const path = file.path;
+					const { path } = file;
 					this.vaultEvents?.enqueue({ type: "delete", path }, () => this.markFileUnavailable(path));
 				}
 			}),
@@ -487,7 +489,7 @@ export default class SonoraPlugin extends Plugin {
 	}
 
 	async activateView() {
-		let leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
+		let [leaf] = this.app.workspace.getLeavesOfType(VIEW_TYPE);
 		if (!leaf) {
 			leaf = this.app.workspace.getLeaf("tab");
 			await leaf.setViewState({ type: VIEW_TYPE, active: true });
@@ -723,7 +725,7 @@ export default class SonoraPlugin extends Plugin {
 		this.refresh();
 
 		const file = this.resolveQueueFile(entry.item.path);
-		if (!file || file.extension !== "md") {
+		if (file?.extension !== "md") {
 			new Notice(copyFor(this.data.settings.interfaceLanguage).undoUnavailable);
 			this.refresh();
 			return;
@@ -779,7 +781,7 @@ export default class SonoraPlugin extends Plugin {
 	}
 
 	async playPause(itemId?: string) {
-		if (itemId && itemId !== this.data.activeItemId) {
+		if (itemId !== undefined && itemId !== "" && itemId !== this.data.activeItemId) {
 			const item = this.data.queue.find((candidate: ReadonlyQueueItem) => candidate.id === itemId);
 			if (!item) return;
 			this.transportGeneration += 1;
@@ -812,7 +814,7 @@ export default class SonoraPlugin extends Plugin {
 	}
 
 	private pausePlayback() {
-		if (!this.player?.pause()) return;
+		if (this.player?.pause() !== true) return;
 		this.updateMediaSessionState("paused");
 	}
 
@@ -867,7 +869,7 @@ export default class SonoraPlugin extends Plugin {
 	async toggleLoop(itemId?: string) {
 		const item = this.active(itemId);
 		if (!item) return;
-		item.loop = !item.loop;
+		item.loop = item.loop !== true;
 		await this.persist();
 		this.refresh();
 	}
@@ -879,7 +881,12 @@ export default class SonoraPlugin extends Plugin {
 	async updateSettings(settings: Readonly<Partial<SonoraSettings>>) {
 		this.data.settings = { ...this.data.settings, ...settings };
 		await this.persist();
-		if (settings.recordingFolder && !this.recording) this.syncRecordingRecoveryRoot();
+		if (
+			settings.recordingFolder !== undefined &&
+			settings.recordingFolder !== "" &&
+			!this.recording
+		)
+			this.syncRecordingRecoveryRoot();
 	}
 	refreshView() {
 		this.refresh();
@@ -899,7 +906,10 @@ export default class SonoraPlugin extends Plugin {
 		if (!session) return;
 		if (session.currentPhase() === "recording") return void session.stop();
 		if (session.currentPhase() !== "idle") return;
-		if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+		if (
+			navigator.mediaDevices?.getUserMedia === undefined ||
+			typeof MediaRecorder === "undefined"
+		) {
 			this.recordingAccessIssue = "unsupported";
 			this.refresh();
 			return;
@@ -944,7 +954,9 @@ export default class SonoraPlugin extends Plugin {
 					if (!source) throw new Error(`Source note is unavailable: ${sourcePath}`);
 					const audioPath = content.match(/!\[\[([^\]]+)\]\]/u)?.[1];
 					await this.app.vault.process(source, (markdown) =>
-						audioPath && hasVoiceMemoLink(markdown, audioPath) ? markdown : `${markdown}${content}`,
+						audioPath !== undefined && audioPath !== "" && hasVoiceMemoLink(markdown, audioPath)
+							? markdown
+							: `${markdown}${content}`,
 					);
 				},
 				preparePendingLink: async (audioPath, sourcePath) => {
@@ -985,7 +997,7 @@ export default class SonoraPlugin extends Plugin {
 					}
 				},
 			);
-			if (!accepted) reject(new Error("Sonora Vault event queue is closed"));
+			if (accepted !== true) reject(new Error("Sonora Vault event queue is closed"));
 		});
 	}
 
@@ -1075,13 +1087,18 @@ export default class SonoraPlugin extends Plugin {
 	}
 
 	private async advanceAfterEnd(generation: number) {
-		if (generation !== this.transportGeneration || this.recording || this.playbackError) return;
+		if (
+			generation !== this.transportGeneration ||
+			this.recording ||
+			(this.playbackError !== null && this.playbackError !== "")
+		)
+			return;
 		const item = this.active();
 		if (!item) return;
 		if (item.kind === "drill" && this.playbackStage === "drill-prompt") {
 			this.playbackStage = "drill-answer";
 			const itemId = item.id;
-			const chapterIndex = item.chapterIndex;
+			const { chapterIndex } = item;
 			this.recallTimer = window.setTimeout(() => {
 				this.recallTimer = null;
 				if (generation !== this.transportGeneration) return;
@@ -1117,7 +1134,7 @@ export default class SonoraPlugin extends Plugin {
 			}
 			if (result.kind === "next-chapter" || result.kind === "next-item") this.playCurrent();
 			else this.updateMediaSessionState("none");
-		} else if (item.loop) {
+		} else if (item.loop === true) {
 			item.chapterIndex = 0;
 			item.completed = false;
 			await this.persist();
@@ -1126,7 +1143,12 @@ export default class SonoraPlugin extends Plugin {
 		} else {
 			item.completed = true;
 			await this.persist();
-			if (generation !== this.transportGeneration || this.recording || this.playbackError) return;
+			if (
+				generation !== this.transportGeneration ||
+				this.recording ||
+				(this.playbackError !== null && this.playbackError !== "")
+			)
+				return;
 			this.updateMediaSessionState("none");
 		}
 		this.refresh();
@@ -1381,7 +1403,7 @@ export default class SonoraPlugin extends Plugin {
 	}
 	private stopIfActiveUnavailable() {
 		const item = this.active();
-		if (item && !item.unavailable && item.chapters.length > 0) return;
+		if (item !== undefined && item.unavailable !== true && item.chapters.length > 0) return;
 		this.transportGeneration += 1;
 		this.cancelRecallTimer();
 		this.player?.stop();
@@ -1410,7 +1432,7 @@ export default class SonoraPlugin extends Plugin {
 	private coverUrl(file: Readonly<TFile>, markdown: string): string | undefined {
 		try {
 			const reference = coverReferenceFromMarkdown(markdown);
-			if (!reference) return undefined;
+			if (reference === null || reference === "") return undefined;
 			if (/^(?:data:|https?:\/\/)/iu.test(reference)) return reference;
 			const target = this.app.metadataCache.getFirstLinkpathDest(reference, file.path);
 			return target ? this.app.vault.getResourcePath(target) : undefined;

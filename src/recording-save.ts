@@ -110,7 +110,8 @@ export async function saveRecordingPayload(
 		{
 			resolveAudioPath: async () => {
 				await dependencies.ensureFolder(folder);
-				if (input.outputPath) return dependencies.normalizePath(input.outputPath);
+				if (input.outputPath !== undefined && input.outputPath !== "")
+					return dependencies.normalizePath(input.outputPath);
 				const stamp = dependencies.now().toISOString().replace(/[:.]/gu, "-");
 				const extension = input.mimeType.includes("mp4")
 					? "m4a"

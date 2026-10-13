@@ -34,8 +34,8 @@ export function nextUnfinishedQueueItem<Item extends ReadonlyQueueItem>(
 				(item) =>
 					!item.completed &&
 					item.kind !== "drill" &&
-					!item.unavailable &&
-					!item.loadError &&
+					item.unavailable !== true &&
+					item.loadError !== true &&
 					item.chapters.length > 0,
 			) ?? null
 	);
@@ -111,7 +111,7 @@ export class SpeechPlayer {
 
 	private speakCurrent(options: Readonly<SpeechOptions>, generation: number): void {
 		const text = this.chunks[this.chunkIndex];
-		if (!text) {
+		if (text === undefined || text === "") {
 			this.setState("idle");
 			this.onEnded();
 			return;

@@ -16,7 +16,7 @@ export function vocabularyFromMarkdown(markdown: string): VocabularyCard[] {
 	for (const line of markdown.split(/\r?\n/u)) {
 		const heading = /^#{1,6}\s+(.+)$/u.exec(line);
 		if (heading) {
-			if (current?.meaning) cards.push(current);
+			if (current?.meaning !== undefined && current.meaning !== "") cards.push(current);
 			current = { term: heading[1]?.trim() ?? "", meaning: "" };
 			continue;
 		}
@@ -28,7 +28,7 @@ export function vocabularyFromMarkdown(markdown: string): VocabularyCard[] {
 		if (key === "example" || key === "例文") current.example = value;
 		if (key === "pronunciation" || key === "発音") current.pronunciation = value;
 	}
-	if (current?.meaning) cards.push(current);
+	if (current?.meaning !== undefined && current.meaning !== "") cards.push(current);
 	return cards.filter((card: Readonly<VocabularyCard>) => card.term && card.meaning);
 }
 
