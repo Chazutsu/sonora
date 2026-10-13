@@ -197,7 +197,7 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 				const chunks: Blob[] = [];
 				for (let index = 0; index < manifest.parts.length; index += 1) {
 					const part = manifest.parts[index];
-					if (!part || part.index !== index || !this.isPartPath(sessionId, index, part.path))
+					if (part?.index !== index || !this.isPartPath(sessionId, index, part.path))
 						throw new Error("Recording recovery manifest has a part gap");
 					const data = await this.options.adapter.readBinary(part.path);
 					if (
@@ -254,7 +254,7 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 		);
 		try {
 			const result = await operation();
-			if (renewalError) throw renewalError;
+			if (renewalError !== null) throw renewalError;
 			await this.renewClaim(sessionId);
 			await this.assertOwnership(sessionId);
 			await cleanup?.();
@@ -481,7 +481,7 @@ export class RecordingRecoveryStore<Context extends Readonly<Record<string, unkn
 	}
 	private async assertCapacity(additionalBytes: number, addingSession: boolean): Promise<void> {
 		if (!(await this.options.adapter.exists(this.options.root))) return;
-		const folders = (await this.options.adapter.list(this.options.root)).folders;
+		const { folders } = await this.options.adapter.list(this.options.root);
 		const activeFolders = folders.filter((folder) => folder !== `${this.options.root}/.quarantine`);
 		if (activeFolders.length + (addingSession ? 1 : 0) > this.maxPendingSessions)
 			throw new Error("Recording recovery pending-session limit reached");

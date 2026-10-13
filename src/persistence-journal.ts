@@ -164,7 +164,7 @@ export class PersistenceJournal<T> {
 			.map(
 				([operationId, entry]: readonly [string, Readonly<JournalManifest["pending"][string]>]) => {
 					const stored = envelopes.get(operationId);
-					if (!stored || stored.envelope.sequence !== entry.sequence) {
+					if (stored?.envelope.sequence !== entry.sequence) {
 						throw new Error("Sonora persistence journal is incomplete");
 					}
 					return {
@@ -239,8 +239,7 @@ export class PersistenceJournal<T> {
 			const indexed = pending[receipt.operationId];
 			const stored = envelopes.get(receipt.operationId);
 			if (
-				!indexed ||
-				indexed.path !== receipt.path ||
+				indexed?.path !== receipt.path ||
 				indexed.sequence !== receipt.sequence ||
 				receipt.manifestId !== manifest.manifestId ||
 				stored?.serialized !== receipt.serialized
@@ -394,7 +393,7 @@ export class PersistenceJournal<T> {
 				// A partial artifact is never promoted. It remains available for inspection.
 			}
 		}
-		const selected = valid.toSorted(
+		const [selected] = valid.toSorted(
 			(
 				left: Readonly<{ path: string; manifest: ReadonlyJournalManifest }>,
 				right: Readonly<{ path: string; manifest: ReadonlyJournalManifest }>,
@@ -402,7 +401,7 @@ export class PersistenceJournal<T> {
 				right.manifest.committedSequence - left.manifest.committedSequence ||
 				right.manifest.nextSequence - left.manifest.nextSequence ||
 				Number(right.path.includes(".next-")) - Number(left.path.includes(".next-")),
-		)[0];
+		);
 		if (!selected) return null;
 		await this.storage.rename(selected.path, this.manifestPath);
 		return selected.manifest;

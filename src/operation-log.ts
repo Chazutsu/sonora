@@ -110,7 +110,7 @@ function valueOf(
 	fallback: OperationValue,
 ): OperationValue {
 	const operation = fields.get(field);
-	return operation && !operation.tombstone ? operation.value : fallback;
+	return operation !== undefined && operation.tombstone !== true ? operation.value : fallback;
 }
 
 /** Reduces an unordered log into the same snapshot on every device. */
@@ -127,7 +127,7 @@ export function reduceOperations(operations: readonly ReadonlySonoraOperation[])
 	const settings = { ...DEFAULT_SETTINGS };
 	for (const field of SETTINGS_FIELDS) {
 		const operation = settingsFields.get(field);
-		if (operation && !operation.tombstone) {
+		if (operation !== undefined && operation.tombstone !== true) {
 			(settings as Record<string, OperationValue>)[field] = operation.value;
 		}
 	}
@@ -222,7 +222,7 @@ function snapshotDiff(
 			write(SONORA_SETTINGS_ENTITY_ID, field, next.settings[field]);
 		}
 	}
-	if (!previous || previous.activeItemId !== next.activeItemId) {
+	if (previous?.activeItemId !== next.activeItemId) {
 		write(SONORA_ROOT_ENTITY_ID, "activeItemId", next.activeItemId);
 	}
 	if (!previous || (previous.upNextItemId ?? null) !== (next.upNextItemId ?? null)) {
@@ -280,7 +280,7 @@ export function appendSnapshot(
 			field,
 			value,
 			timestamp: clock,
-			...(tombstone ? { tombstone: true } : {}),
+			...(tombstone === true ? { tombstone: true } : {}),
 		});
 	};
 	const previous = document.operations.length ? reduceOperations(document.operations) : null;

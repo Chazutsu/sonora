@@ -5,7 +5,10 @@ export function continueListening<Item extends ReadonlyQueueItem>(
 	limit = 4,
 ): Item[] {
 	return queue
-		.filter((item) => !item.completed && !item.unavailable && item.lastPlayedAt !== undefined)
+		.filter(
+			(item) =>
+				item.completed !== true && item.unavailable !== true && item.lastPlayedAt !== undefined,
+		)
 		.toSorted((left, right) => (right.lastPlayedAt ?? 0) - (left.lastPlayedAt ?? 0))
 		.slice(0, Math.max(0, limit));
 }
@@ -23,7 +26,7 @@ export function queueSections<Item extends ReadonlyQueueItem>(
 	activeItemId: string | null,
 	upNextItemId: string | null,
 ): QueueSections<Item> {
-	const playable = queue.filter((item) => !item.unavailable && !item.loadError);
+	const playable = queue.filter((item) => item.unavailable !== true && item.loadError !== true);
 	const current = playable.find((item) => item.id === activeItemId) ?? null;
 	const unfinished = playable.filter((item) => !item.completed && item.id !== current?.id);
 	const explicitNext = unfinished.find((item) => item.id === upNextItemId) ?? null;

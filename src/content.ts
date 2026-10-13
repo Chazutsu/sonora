@@ -23,13 +23,13 @@ function normalizeCoverReference(value: string): string {
 export function coverReferenceFromMarkdown(markdown: string): string | null {
 	const frontmatter = /^---\s*\n([\s\S]*?)\n---/u.exec(markdown)?.[1] ?? "";
 	const property = /^(?:cover|image|thumbnail):\s*(.+?)\s*$/imu.exec(frontmatter)?.[1]?.trim();
-	if (property) return normalizeCoverReference(property) || null;
+	if (property !== undefined) return normalizeCoverReference(property) || null;
 	const markdownImage = /!\[[^\]]*\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/u.exec(markdown)?.[1];
-	if (markdownImage) return normalizeCoverReference(markdownImage) || null;
+	if (markdownImage !== undefined) return normalizeCoverReference(markdownImage) || null;
 	const embed = /!\[\[([^\]|]+\.(?:avif|gif|jpe?g|png|svg|webp))(?:\|[^\]]+)?\]\]/iu.exec(
 		markdown,
 	)?.[1];
-	return embed ? normalizeCoverReference(embed) || null : null;
+	return embed !== undefined ? normalizeCoverReference(embed) || null : null;
 }
 
 export function readableMarkdown(markdown: string): string {
@@ -40,7 +40,9 @@ export function readableMarkdown(markdown: string): string {
 		.replace(HTML_COMMENT, "")
 		.replace(OBSIDIAN_COMMENT, "")
 		.replace(EMBED, "$1")
-		.replace(WIKILINK, (_match, target: string, alias?: string) => alias || target)
+		.replace(WIKILINK, (_match, target: string, alias?: string) =>
+			alias !== undefined && alias !== "" ? alias : target,
+		)
 		.replace(MARKDOWN_LINK, "$1")
 		.replace(/^\s{0,3}>\s?/gmu, "")
 		.replace(/^\s*[-*+]\s+/gmu, "")

@@ -105,7 +105,7 @@ export class VaultEventQueue {
 	): boolean {
 		if (!this.accepting) return false;
 		const entry: PendingEntry = { context, operation, started: false, latestKey };
-		if (latestKey) this.pendingLatest.set(latestKey, entry);
+		if (latestKey !== undefined && latestKey !== "") this.pendingLatest.set(latestKey, entry);
 		this.pendingCount += 1;
 		this.reportPressure();
 		this.tail = this.tail.then(() => this.run(entry));
@@ -121,7 +121,11 @@ export class VaultEventQueue {
 
 	private async run(entry: PendingEntry): Promise<void> {
 		entry.started = true;
-		if (entry.latestKey && this.pendingLatest.get(entry.latestKey) === entry) {
+		if (
+			entry.latestKey !== undefined &&
+			entry.latestKey !== "" &&
+			this.pendingLatest.get(entry.latestKey) === entry
+		) {
 			this.pendingLatest.delete(entry.latestKey);
 		}
 		try {
