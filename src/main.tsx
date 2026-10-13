@@ -22,11 +22,7 @@ import { PersistenceQueue } from "./persistence-queue";
 import { PersistenceJournal } from "./persistence-journal";
 import { FileRefreshCoordinator } from "./file-refresh-coordinator";
 import { visibleSpeechSegment } from "./progress-throttle";
-import {
-	RecordingSession,
-	type RecordingPayload,
-	type RecordingRecorder,
-} from "./recording-session";
+import { RecordingSession, type RecordingPayload } from "./recording-session";
 import { classifyRecordingAccessError, type RecordingAccessIssue } from "./recording-access";
 import { recordingOutputPath, saveRecordingPayload } from "./recording-save";
 import {
@@ -145,11 +141,13 @@ class SonoraView extends ItemView {
 		this.root = createRoot(this.contentEl);
 		this.plugin.registerOpenView(this);
 		this.render();
+		await Promise.resolve();
 	}
 	async onClose() {
 		this.plugin.unregisterOpenView(this);
 		this.root?.unmount();
 		this.root = null;
+		await Promise.resolve();
 	}
 	render() {
 		this.root?.render(
@@ -178,15 +176,23 @@ class SonoraView extends ItemView {
 				onSelectChapter={(id, chapterIndex) => void this.plugin.selectChapter(id, chapterIndex)}
 				onPlayChapter={(id, chapterIndex) => void this.plugin.playChapter(id, chapterIndex)}
 				onSetUpNext={(id) => void this.plugin.setUpNext(id)}
-				onReorder={(sourceId, targetId, placement) =>
-					this.plugin.reorderQueue(sourceId, targetId, placement)
-				}
+				onReorder={async (sourceId, targetId, placement) => {
+					const result = this.plugin.reorderQueue(sourceId, targetId, placement);
+					await Promise.resolve();
+					return result;
+				}}
 				onRemove={(id, focusUndo, nextVisibleItemId) =>
 					void this.plugin.remove(id, focusUndo ? this : null, nextVisibleItemId)
 				}
-				onUndoRemove={(id) => this.plugin.undoRemove(id)}
+				onUndoRemove={async (id) => {
+					const result = this.plugin.undoRemove(id);
+					await Promise.resolve();
+					return result;
+				}}
 				onDismissRemove={(id) => void this.plugin.dismissRemove(id)}
-				onPlayPause={(id) => this.plugin.playPause(id)}
+				onPlayPause={(id) => {
+					void this.plugin.playPause(id);
+				}}
 				onPrevious={(id) => void this.plugin.previous(id)}
 				onNext={(id) => void this.plugin.next(id)}
 				onRestart={(id) => {
@@ -312,13 +318,19 @@ export default class SonoraPlugin extends Plugin {
 			async (path) => {
 				const file = this.resolveQueueFile(path);
 				if (!file) throw new Error(`Missing Vault file: ${path}`);
-				return this.app.vault.cachedRead(file);
+				const markdown = this.app.vault.cachedRead(file);
+				await Promise.resolve();
+				return markdown;
 			},
 			(markdown) => markdown,
 		);
 		this.vaultEvents = new VaultEventQueue({
-			onError: () => new Notice(this.copy().noticeVaultUpdateFailed),
-			onPressure: () => new Notice(this.copy().noticeVaultPressure),
+			onError: () => {
+				new Notice(this.copy().noticeVaultUpdateFailed);
+			},
+			onPressure: () => {
+				new Notice(this.copy().noticeVaultPressure);
+			},
 		});
 		const recoveryRoot = normalizePath(`${this.data.settings.recordingFolder}/.sonora-pending`);
 		this.recordingRecoveryInstallId = this.recordingInstallId();
@@ -326,9 +338,12 @@ export default class SonoraPlugin extends Plugin {
 			this.recordingRecoveries.set(root, this.createRecordingRecovery(root));
 		this.recordingRecovery = this.recordingRecoveries.get(recoveryRoot) ?? null;
 		this.recordingSession = new RecordingSession<RecordingContext>({
-			requestStream: () => navigator.mediaDevices.getUserMedia({ audio: true }),
-			createRecorder: (stream) =>
-				new MediaRecorder(stream as MediaStream) as unknown as RecordingRecorder,
+			requestStream: async () => {
+				const stream = navigator.mediaDevices.getUserMedia({ audio: true });
+				await Promise.resolve();
+				return stream;
+			},
+			createRecorder: (stream) => new MediaRecorder(stream as MediaStream),
 			resolveOutputPath: ({ context, mimeType, startedAt }) =>
 				recordingOutputPath(
 					this.data.settings.recordingFolder,
@@ -337,22 +352,32 @@ export default class SonoraPlugin extends Plugin {
 					startedAt,
 					normalizePath,
 				),
-			onSave: (payload) => this.enqueueRecordingSave(payload),
-			onCheckpointStart: (input) => {
-				if (!this.recordingRecovery) throw new Error("Recording recovery is unavailable");
-				return this.recordingRecovery.begin(input);
+			onSave: async (payload) => {
+				await this.enqueueRecordingSave(payload);
 			},
-			onCheckpointPart: (input: Readonly<RecordingCheckpointPart>) => {
+			onCheckpointStart: async (input) => {
 				if (!this.recordingRecovery) throw new Error("Recording recovery is unavailable");
-				return this.recordingRecovery.append(input);
+				const checkpoint = this.recordingRecovery.begin(input);
+				await Promise.resolve();
+				return checkpoint;
 			},
-			onCheckpointReady: (payload) => {
+			onCheckpointPart: async (input: Readonly<RecordingCheckpointPart>) => {
 				if (!this.recordingRecovery) throw new Error("Recording recovery is unavailable");
-				return this.recordingRecovery.markReady(payload);
+				const checkpoint = this.recordingRecovery.append(input);
+				await Promise.resolve();
+				return checkpoint;
 			},
-			onSaveConfirmed: (sessionId) => {
+			onCheckpointReady: async (payload) => {
 				if (!this.recordingRecovery) throw new Error("Recording recovery is unavailable");
-				return this.recordingRecovery.remove(sessionId);
+				const checkpoint = this.recordingRecovery.markReady(payload);
+				await Promise.resolve();
+				return checkpoint;
+			},
+			onSaveConfirmed: async (sessionId) => {
+				if (!this.recordingRecovery) throw new Error("Recording recovery is unavailable");
+				const removal = this.recordingRecovery.remove(sessionId);
+				await Promise.resolve();
+				return removal;
 			},
 			onPhaseChange: (phase) => {
 				this.recording = phase === "recording" || phase === "stopping" || phase === "saving";
@@ -389,7 +414,9 @@ export default class SonoraPlugin extends Plugin {
 			this.app.vault.on("delete", (file) => {
 				if (file instanceof TFile) {
 					const { path } = file;
-					this.vaultEvents?.enqueue({ type: "delete", path }, () => this.markFileUnavailable(path));
+					this.vaultEvents?.enqueue({ type: "delete", path }, async () => {
+						await this.markFileUnavailable(path);
+					});
 				}
 			}),
 		);
@@ -445,7 +472,9 @@ export default class SonoraPlugin extends Plugin {
 		this.addCommand({
 			id: "play-pause",
 			name: copy.commandPlayPause,
-			callback: () => this.playPause(),
+			callback: async () => {
+				await this.playPause();
+			},
 		});
 		this.addCommand({
 			id: "record-response",
@@ -507,7 +536,10 @@ export default class SonoraPlugin extends Plugin {
 
 	async addActiveNote() {
 		const file = this.sourceFile();
-		if (!file) return void new Notice(this.copy().noticeOpenMarkdown);
+		if (!file) {
+			new Notice(this.copy().noticeOpenMarkdown);
+			return;
+		}
 		await this.addFile(file, "note");
 	}
 
@@ -523,7 +555,10 @@ export default class SonoraPlugin extends Plugin {
 		const markdown = await this.app.vault.cachedRead(file);
 		const chapters = chaptersFromMarkdown(markdown, file.basename);
 		const coverUrl = this.coverUrl(file, markdown);
-		if (!chapters.length) return void new Notice(this.copy().noticeNoReadableText);
+		if (!chapters.length) {
+			new Notice(this.copy().noticeNoReadableText);
+			return;
+		}
 		this.transportGeneration += 1;
 		this.resetPlaybackPresentation();
 		const existing = this.data.queue.find(
@@ -560,14 +595,20 @@ export default class SonoraPlugin extends Plugin {
 
 	async addVocabularyDrill() {
 		const file = this.sourceFile();
-		if (!file) return void new Notice(this.copy().noticeOpenVocabulary);
+		if (!file) {
+			new Notice(this.copy().noticeOpenVocabulary);
+			return;
+		}
 		await this.addVocabularyFile(file);
 	}
 
 	private async addVocabularyFile(file: Readonly<TFile>) {
 		const markdown = await this.app.vault.cachedRead(file);
 		const chapters = vocabularyChapters(vocabularyFromMarkdown(markdown));
-		if (!chapters.length) return void new Notice(this.copy().noticeNoVocabularyCards);
+		if (!chapters.length) {
+			new Notice(this.copy().noticeNoVocabularyCards);
+			return;
+		}
 		this.transportGeneration += 1;
 		this.resetPlaybackPresentation();
 		const existing = this.data.queue.find(
@@ -648,8 +689,13 @@ export default class SonoraPlugin extends Plugin {
 		await setUpNextDurably(
 			this.data,
 			id,
-			() => this.persistCriticalResult(),
-			() => this.persist(),
+			async () => {
+				const durable = await this.persistCriticalResult();
+				return durable;
+			},
+			async () => {
+				await this.persist();
+			},
 		);
 		this.refresh();
 	}
@@ -660,9 +706,12 @@ export default class SonoraPlugin extends Plugin {
 			nextQueue,
 			async () => {
 				this.refresh();
-				return this.persistCriticalResult();
+				const durable = await this.persistCriticalResult();
+				return durable;
 			},
-			() => this.persist(),
+			async () => {
+				await this.persist();
+			},
 		);
 		this.refresh();
 		return saved;
@@ -778,6 +827,7 @@ export default class SonoraPlugin extends Plugin {
 		this.removalUndoFocusView = null;
 		this.scheduleRemovalUndoExpiry();
 		this.refresh();
+		await Promise.resolve();
 	}
 
 	async playPause(itemId?: string) {
@@ -904,7 +954,10 @@ export default class SonoraPlugin extends Plugin {
 	async toggleRecording(itemId?: string) {
 		const session = this.recordingSession;
 		if (!session) return;
-		if (session.currentPhase() === "recording") return void session.stop();
+		if (session.currentPhase() === "recording") {
+			session.stop();
+			return;
+		}
 		if (session.currentPhase() !== "idle") return;
 		if (
 			navigator.mediaDevices?.getUserMedia === undefined ||
@@ -915,7 +968,10 @@ export default class SonoraPlugin extends Plugin {
 			return;
 		}
 		const item = this.active(itemId);
-		if (!item) return void new Notice(this.copy().noticeChooseRecordingNote);
+		if (!item) {
+			new Notice(this.copy().noticeChooseRecordingNote);
+			return;
+		}
 		this.transportGeneration += 1;
 		this.cancelRecallTimer();
 		const started = await session.start({ itemId: item.id, path: item.path, title: item.title });
@@ -945,14 +1001,25 @@ export default class SonoraPlugin extends Plugin {
 			{
 				normalizePath,
 				now: () => new Date(),
-				ensureFolder: (folder) => this.ensureFolder(folder),
-				createBinary: (path, data) => this.app.vault.createBinary(path, data),
-				exists: (path) => this.app.vault.adapter.exists(path),
-				readBinary: (path) => this.app.vault.adapter.readBinary(path),
+				ensureFolder: async (folder) => {
+					await this.ensureFolder(folder);
+				},
+				createBinary: async (path, data) => {
+					const file = await this.app.vault.createBinary(path, data);
+					return file;
+				},
+				exists: async (path) => {
+					const exists = await this.app.vault.adapter.exists(path);
+					return exists;
+				},
+				readBinary: async (path) => {
+					const data = await this.app.vault.adapter.readBinary(path);
+					return data;
+				},
 				appendToSource: async (sourcePath, content) => {
 					const source = this.resolveQueueFile(sourcePath);
 					if (!source) throw new Error(`Source note is unavailable: ${sourcePath}`);
-					const audioPath = content.match(/!\[\[([^\]]+)\]\]/u)?.[1];
+					const audioPath = /!\[\[([^\]]+)\]\]/u.exec(content)?.[1];
 					await this.app.vault.process(source, (markdown) =>
 						audioPath !== undefined && audioPath !== "" && hasVoiceMemoLink(markdown, audioPath)
 							? markdown
@@ -975,17 +1042,22 @@ export default class SonoraPlugin extends Plugin {
 					await this.persistCritical();
 				},
 			},
-			(message) => new Notice(message),
+			(message) => {
+				new Notice(message);
+			},
 			recordingSaveMessages(copy, payload.limit),
 		);
 		if (outcome.status === "failed") throw outcome.saveError;
 	}
 
-	private enqueueRecordingSave(
+	private async enqueueRecordingSave(
 		payload: Readonly<RecordingPayload<RecordingContext>>,
 	): Promise<void> {
-		if (!this.vaultEvents) return this.saveRecording(payload);
-		return new Promise((resolve, reject) => {
+		if (!this.vaultEvents) {
+			await this.saveRecording(payload);
+			return;
+		}
+		await new Promise<void>((resolve, reject) => {
 			const accepted = this.vaultEvents?.enqueue(
 				{ type: "recording-save", path: payload.context.path },
 				async () => {
@@ -1007,8 +1079,12 @@ export default class SonoraPlugin extends Plugin {
 				try {
 					await recovery.withClaim(
 						payload.recoveryId,
-						() => this.saveRecording(payload),
-						() => recovery.remove(payload.recoveryId),
+						async () => {
+							await this.saveRecording(payload);
+						},
+						async () => {
+							await recovery.remove(payload.recoveryId);
+						},
 					);
 				} catch {
 					new Notice(this.copy().noticeRecordingFailed);
@@ -1022,7 +1098,9 @@ export default class SonoraPlugin extends Plugin {
 			adapter: this.app.vault.adapter,
 			root,
 			installId: this.recordingRecoveryInstallId,
-			ensureFolder: (path) => this.ensureFolder(path),
+			ensureFolder: async (path) => {
+				await this.ensureFolder(path);
+			},
 		});
 	}
 
@@ -1122,8 +1200,13 @@ export default class SonoraPlugin extends Plugin {
 			const result = await advanceListeningAfterEnd(
 				this.data,
 				item,
-				() => this.persistCriticalResult(),
-				() => this.persist(),
+				async () => {
+					const durable = await this.persistCriticalResult();
+					return durable;
+				},
+				async () => {
+					await this.persist();
+				},
 			);
 			if (generation !== this.transportGeneration || this.recording) return;
 			if (result.kind === "save-failed") {
@@ -1273,11 +1356,14 @@ export default class SonoraPlugin extends Plugin {
 		}
 	}
 	private async hydrateQueue() {
-		return hydrateQueueItems(
+		const result = await hydrateQueueItems(
 			this.data.queue,
 			(path) => this.resolveQueueFile(path),
-			(item, file) => this.updateItemFromFile(item, file),
+			async (item, file) => {
+				await this.updateItemFromFile(item, file);
+			},
 		);
+		return result;
 	}
 	private enqueueQueueHydration() {
 		this.vaultEvents?.enqueue({ type: "hydrate", path: "/" }, async () => {
@@ -1322,7 +1408,9 @@ export default class SonoraPlugin extends Plugin {
 				const current = this.app.vault.getAbstractFileByPath(path);
 				return current instanceof TFile && current.extension === "md" ? current : null;
 			},
-			(current) => this.refreshFile(current),
+			async (current) => {
+				await this.refreshFile(current);
+			},
 			(path) => this.data.queue.some((item: ReadonlyQueueItem) => sameVaultPath(item.path, path)),
 		);
 	}
@@ -1336,7 +1424,9 @@ export default class SonoraPlugin extends Plugin {
 				const current = this.app.vault.getAbstractFileByPath(path);
 				return current instanceof TFile && current.extension === "md" ? current : null;
 			},
-			(path, previousPath, current) => this.renameFile(path, previousPath, current),
+			async (path, previousPath, current) => {
+				await this.renameFile(path, previousPath, current);
+			},
 		);
 	}
 	private async renameFile(path: string, oldPath: string, file: Readonly<TFile> | null) {

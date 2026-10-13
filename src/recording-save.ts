@@ -106,7 +106,7 @@ export async function saveRecordingPayload(
 	messages: Readonly<RecordingSaveMessages>,
 ): Promise<RecordingSaveOutcome> {
 	const folder = dependencies.normalizePath(input.folder);
-	return saveRecordingAndNotify(
+	const outcome = saveRecordingAndNotify(
 		{
 			resolveAudioPath: async () => {
 				await dependencies.ensureFolder(folder);
@@ -150,6 +150,8 @@ export async function saveRecordingPayload(
 		notify,
 		messages,
 	);
+	await Promise.resolve();
+	return outcome;
 }
 
 export function recordingOutputPath(
