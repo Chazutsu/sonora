@@ -42,7 +42,7 @@ export interface RecordingFileSaveDependencies {
 	normalizePath(path: string): string;
 	now(): Date;
 	ensureFolder(path: string): Promise<void>;
-	createBinary(path: string, data: ArrayBuffer): Promise<unknown>;
+	createBinary(path: string, data: Readonly<ArrayBuffer>): Promise<unknown>;
 	exists?(path: string): Promise<boolean>;
 	readBinary?(path: string): Promise<ArrayBuffer>;
 	appendToSource(sourcePath: string, content: string): Promise<void>;
@@ -56,7 +56,7 @@ export interface RecordingFileSaveDependencies {
  * The returned path can be placed in a recovery inbox or retried later.
  */
 export async function saveRecordingWithLink(
-	steps: RecordingSaveSteps,
+	steps: Readonly<RecordingSaveSteps>,
 ): Promise<RecordingSaveOutcome> {
 	let audioPath: string;
 	try {
@@ -88,9 +88,9 @@ export async function saveRecordingWithLink(
 }
 
 export async function saveRecordingAndNotify(
-	steps: RecordingSaveSteps,
+	steps: Readonly<RecordingSaveSteps>,
 	notify: (message: string) => void,
-	messages: RecordingSaveMessages,
+	messages: Readonly<RecordingSaveMessages>,
 ): Promise<RecordingSaveOutcome> {
 	const outcome = await saveRecordingWithLink(steps);
 	if (outcome.status === "failed") notify(messages.failed);
@@ -100,10 +100,10 @@ export async function saveRecordingAndNotify(
 }
 
 export async function saveRecordingPayload(
-	input: RecordingFileSaveInput,
-	dependencies: RecordingFileSaveDependencies,
+	input: Readonly<RecordingFileSaveInput> & { readonly blob: Readonly<Blob> },
+	dependencies: Readonly<RecordingFileSaveDependencies>,
 	notify: (message: string) => void,
-	messages: RecordingSaveMessages,
+	messages: Readonly<RecordingSaveMessages>,
 ): Promise<RecordingSaveOutcome> {
 	const folder = dependencies.normalizePath(input.folder);
 	return saveRecordingAndNotify(
@@ -163,7 +163,7 @@ export function recordingOutputPath(
 	return normalizePath(`${folder}/${title} ${stamp}.${extension}`);
 }
 
-function equalBytes(left: ArrayBuffer, right: ArrayBuffer): boolean {
+function equalBytes(left: Readonly<ArrayBuffer>, right: Readonly<ArrayBuffer>): boolean {
 	if (left.byteLength !== right.byteLength) return false;
 	const leftBytes = new Uint8Array(left);
 	const rightBytes = new Uint8Array(right);

@@ -1,12 +1,22 @@
 import {
 	DEFAULT_SETTINGS,
 	type QueueItem,
+	type ReadonlyQueueItem,
 	type PendingVoiceMemoLink,
 	type SonoraData,
 	type SonoraSettings,
 	type StoredQueueItem,
 	type StoredSonoraData,
 } from "./types";
+
+type ReadonlySonoraData = Omit<
+	Readonly<SonoraData>,
+	"settings" | "queue" | "pendingVoiceMemoLinks"
+> & {
+	readonly settings: Readonly<SonoraSettings>;
+	readonly queue: readonly ReadonlyQueueItem[];
+	readonly pendingVoiceMemoLinks: readonly Readonly<PendingVoiceMemoLink>[];
+};
 
 export const CURRENT_SCHEMA_VERSION = 4;
 export const MAX_PENDING_VOICE_MEMO_LINKS = 100;
@@ -104,7 +114,10 @@ export function deserializePendingVoiceMemoLinks(value: unknown): PendingVoiceMe
 		unique.set(key, pending);
 	}
 	return [...unique.values()]
-		.toSorted((left, right) => left.createdAt - right.createdAt)
+		.toSorted(
+			(left: Readonly<PendingVoiceMemoLink>, right: Readonly<PendingVoiceMemoLink>) =>
+				left.createdAt - right.createdAt,
+		)
 		.slice(-MAX_PENDING_VOICE_MEMO_LINKS);
 }
 
@@ -122,7 +135,7 @@ export function deserializeData(value: unknown): SonoraData {
 			})
 		: [];
 	const activeItemId = isString(input.activeItemId) ? input.activeItemId : null;
-	const resolvedActiveItemId = queue.some((item) => item.id === activeItemId)
+	const resolvedActiveItemId = queue.some((item: ReadonlyQueueItem) => item.id === activeItemId)
 		? activeItemId
 		: (queue[0]?.id ?? null);
 	const upNextItemId = isString(input.upNextItemId) ? input.upNextItemId : null;
@@ -132,7 +145,7 @@ export function deserializeData(value: unknown): SonoraData {
 		activeItemId: resolvedActiveItemId,
 		upNextItemId:
 			upNextItemId !== resolvedActiveItemId &&
-			queue.some((item) => item.id === upNextItemId && !item.completed)
+			queue.some((item: ReadonlyQueueItem) => item.id === upNextItemId && !item.completed)
 				? upNextItemId
 				: null,
 		pendingVoiceMemoLinks: deserializePendingVoiceMemoLinks(input.pendingVoiceMemoLinks),
@@ -151,7 +164,7 @@ export function deserializePersistenceWatermark(
 	return { manifestId: watermark.manifestId, committedSequence };
 }
 
-export function serializeData(data: SonoraData): StoredSonoraData {
+export function serializeData(data: ReadonlySonoraData): StoredSonoraData {
 	return {
 		schemaVersion: CURRENT_SCHEMA_VERSION,
 		settings: { ...data.settings },
@@ -165,6 +178,8 @@ export function serializeData(data: SonoraData): StoredSonoraData {
 		),
 		activeItemId: data.activeItemId,
 		upNextItemId: data.upNextItemId,
-		pendingVoiceMemoLinks: data.pendingVoiceMemoLinks.map((pending) => ({ ...pending })),
+		pendingVoiceMemoLinks: data.pendingVoiceMemoLinks.map(
+			(pending: Readonly<PendingVoiceMemoLink>) => ({ ...pending }),
+		),
 	};
 }

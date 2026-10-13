@@ -22,6 +22,10 @@ export type QueueItem = {
 	loadError?: boolean;
 };
 
+export type ReadonlyQueueItem = Omit<Readonly<QueueItem>, "chapters"> & {
+	readonly chapters: readonly Readonly<Chapter>[];
+};
+
 export type SonoraSettings = {
 	interfaceLanguage: "system" | "en" | "ja";
 	language: "system" | "en-US" | "ja-JP";

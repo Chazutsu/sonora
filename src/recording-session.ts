@@ -6,26 +6,35 @@ export interface RecordingTrack {
 }
 
 export interface RecordingStream {
-	getTracks(): RecordingTrack[];
+	getTracks(): readonly Readonly<RecordingTrack>[];
 }
 
 export interface RecordingChunkEvent {
-	data: Blob;
+	readonly data: Readonly<Blob>;
 }
 
 export interface RecordingErrorEvent {
-	error?: unknown;
+	readonly error?: unknown;
 }
 
 export interface RecordingRecorder {
 	readonly mimeType: string;
 	readonly state: string;
-	addEventListener(type: "dataavailable", listener: (event: RecordingChunkEvent) => void): void;
+	addEventListener(
+		type: "dataavailable",
+		listener: (event: Readonly<RecordingChunkEvent>) => void,
+	): void;
 	addEventListener(type: "stop", listener: () => void): void;
-	addEventListener(type: "error", listener: (event: RecordingErrorEvent) => void): void;
-	removeEventListener(type: "dataavailable", listener: (event: RecordingChunkEvent) => void): void;
+	addEventListener(type: "error", listener: (event: Readonly<RecordingErrorEvent>) => void): void;
+	removeEventListener(
+		type: "dataavailable",
+		listener: (event: Readonly<RecordingChunkEvent>) => void,
+	): void;
 	removeEventListener(type: "stop", listener: () => void): void;
-	removeEventListener(type: "error", listener: (event: RecordingErrorEvent) => void): void;
+	removeEventListener(
+		type: "error",
+		listener: (event: Readonly<RecordingErrorEvent>) => void,
+	): void;
 	start(timeslice?: number): void;
 	requestData?(): void;
 	stop(): void;
@@ -35,7 +44,7 @@ export interface RecordingPayload<Context extends Readonly<Record<string, unknow
 	readonly recoveryId: string;
 	readonly outputPath?: string;
 	readonly context: Readonly<Context>;
-	readonly blob: Blob;
+	readonly blob: Readonly<Blob>;
 	readonly mimeType: string;
 	readonly size: number;
 	readonly startedAt: number;
@@ -46,7 +55,7 @@ export interface RecordingPayload<Context extends Readonly<Record<string, unknow
 
 export interface RecordingSessionOptions<Context extends Readonly<Record<string, unknown>>> {
 	requestStream(): Promise<RecordingStream>;
-	createRecorder(stream: RecordingStream): RecordingRecorder;
+	createRecorder(stream: Readonly<RecordingStream>): RecordingRecorder;
 	onSave(payload: Readonly<RecordingPayload<Context>>): void | Promise<void>;
 	onCheckpointStart?(input: {
 		readonly sessionId: string;
@@ -96,9 +105,9 @@ export class RecordingSession<Context extends Readonly<Record<string, unknown>>>
 	private timer: unknown = null;
 	private stopRequested = false;
 	private limit: RecordingPayload<Context>["limit"] = null;
-	private dataListener: ((event: RecordingChunkEvent) => void) | null = null;
+	private dataListener: ((event: Readonly<RecordingChunkEvent>) => void) | null = null;
 	private stopListener: (() => void) | null = null;
-	private errorListener: ((event: RecordingErrorEvent) => void) | null = null;
+	private errorListener: ((event: Readonly<RecordingErrorEvent>) => void) | null = null;
 	private recoveryId = "";
 	private checkpointIndex = 0;
 	private checkpointQueue = Promise.resolve();
@@ -106,13 +115,13 @@ export class RecordingSession<Context extends Readonly<Record<string, unknown>>>
 	private outputPath: string | undefined;
 	private unloading = false;
 
-	constructor(private readonly options: RecordingSessionOptions<Context>) {}
+	constructor(private readonly options: Readonly<RecordingSessionOptions<Context>>) {}
 
 	currentPhase(): RecordingPhase {
 		return this.phase;
 	}
 
-	async start(context: Context): Promise<boolean> {
+	async start(context: Readonly<Context>): Promise<boolean> {
 		if (this.disposed || this.phase !== "idle") return false;
 
 		const generation = ++this.generation;
@@ -202,7 +211,7 @@ export class RecordingSession<Context extends Readonly<Record<string, unknown>>>
 		this.stopTracks(this.stream);
 	}
 
-	private receiveChunk(generation: number, chunk: Blob): void {
+	private receiveChunk(generation: number, chunk: Readonly<Blob>): void {
 		if (
 			!this.isSessionGeneration(generation) ||
 			(this.phase !== "recording" && this.phase !== "stopping") ||
@@ -344,7 +353,7 @@ export class RecordingSession<Context extends Readonly<Record<string, unknown>>>
 		this.errorListener = null;
 	}
 
-	private stopTracks(stream: RecordingStream | null): void {
+	private stopTracks(stream: Readonly<RecordingStream> | null): void {
 		for (const track of stream?.getTracks() ?? []) {
 			try {
 				track.stop();
