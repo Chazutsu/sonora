@@ -4,9 +4,21 @@ All notable changes to Sonora are documented here.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-14
+
+### Added
+
+- Added searchable, declarative plugin settings for language, playback speed, recall timing, voice selection, recording embeds, and support links.
+
+### Changed
+
+- Raised the minimum supported Obsidian version to 1.13.0 for the current settings API.
+- Strengthened local Obsidian API linting, CI reproducibility, and development dependency security.
+
 ### Fixed
 
 - Scoped recording-recovery metadata to the active vault through Obsidian's storage API, with a one-time, non-destructive migration of valid legacy values.
+- Resolved playback and recording-recovery behavior in popout windows by using the owning window's browser APIs and timers.
 
 ## [0.1.2] - 2026-10-13
 

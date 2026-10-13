@@ -2,6 +2,24 @@
 
 Sonora turns Markdown notes into a listening queue. Listen chapter by chapter, resume where you stopped, and record a voice response that remains in your vault.
 
+## Installation
+
+Once Sonora is listed in the Obsidian Community Plugins directory:
+
+1. Open **Settings → Community plugins → Browse**.
+2. Search for **Sonora**, select it, and choose **Install**.
+3. Choose **Enable**.
+
+For manual installation, download `main.js`, `manifest.json`, and `styles.css` from the matching GitHub release, place them in `<vault>/.obsidian/plugins/sonora/`, then enable Sonora under **Settings → Community plugins**.
+
+## Usage
+
+1. Open a Markdown note you want to hear.
+2. Run **Sonora: Add active note to listening queue** from the command palette.
+3. Run **Sonora: Open listening workspace** to play the note, navigate its heading-based chapters, adjust speed, or record a voice response.
+
+To practise vocabulary instead, format the note as shown below and run **Sonora: Add active note as a vocabulary drill**.
+
 ## Current capabilities
 
 - Add the active Markdown note to a persistent listening queue.
