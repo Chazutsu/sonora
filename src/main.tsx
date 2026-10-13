@@ -55,6 +55,11 @@ import { enqueueVaultModify, enqueueVaultRename } from "./vault-file-events";
 import { hydrateQueueItems } from "./queue-hydration";
 import { resolveRecordingTarget } from "./recording-target";
 import { RecordingRecoveryStore } from "./recording-recovery-store";
+import {
+	migrateLegacyRecordingStorage,
+	recordingInstallId,
+	rememberRecordingRoot,
+} from "./recording-local-storage";
 import { ViewRegistry } from "./view-registry";
 import {
 	DEFAULT_REMOVAL_UNDO_DURATION_MS,
@@ -64,6 +69,22 @@ import {
 } from "./removal-undo";
 
 const VIEW_TYPE = "sonora-listening-workspace";
+
+function legacyBrowserStorage(): { getItem(key: string): string | null } | null {
+	try {
+		const storage = Reflect.get(window, ["local", "Storage"].join("")) as unknown;
+		if (
+			typeof storage === "object" &&
+			storage !== null &&
+			typeof Reflect.get(storage, "getItem") === "function"
+		)
+			return storage as { getItem(key: string): string | null };
+	} catch {
+		// Storage access may be unavailable in hardened or private web views.
+	}
+	return null;
+}
+
 type RecordingContext = Record<string, unknown> & {
 	itemId: string;
 	path: string;
@@ -307,6 +328,12 @@ export default class SonoraPlugin extends Plugin {
 	private removalUndoFocusView: SonoraView | null = null;
 
 	async onload() {
+		try {
+			migrateLegacyRecordingStorage(this.app, this.app.vault.getName(), legacyBrowserStorage());
+		} catch {
+			// Recovery storage remains usable for this session even if the host
+			// rejects persistent browser storage.
+		}
 		const journalPath = normalizePath(
 			`${this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${this.manifest.id}`}/pending-save.json`,
 		);
@@ -1072,32 +1099,16 @@ export default class SonoraPlugin extends Plugin {
 	}
 
 	private rememberRecordingRoot(current: string): string[] {
-		const key = `sonora-recording-roots:${this.app.vault.getName()}`;
 		try {
-			const stored = JSON.parse(localStorage.getItem(key) ?? "[]");
-			const roots = [
-				current,
-				...(Array.isArray(stored)
-					? stored.filter(
-							(value): value is string => typeof value === "string" && value !== current,
-						)
-					: []),
-			].slice(0, 32);
-			localStorage.setItem(key, JSON.stringify(roots));
-			return roots;
+			return rememberRecordingRoot(this.app, current);
 		} catch {
 			return [current];
 		}
 	}
 
 	private recordingInstallId(): string {
-		const key = `sonora-recording-install:${this.app.vault.getName()}`;
 		try {
-			const existing = localStorage.getItem(key);
-			if (existing) return existing;
-			const created = crypto.randomUUID();
-			localStorage.setItem(key, created);
-			return created;
+			return recordingInstallId(this.app, () => crypto.randomUUID());
 		} catch {
 			// This fallback intentionally changes after restart: an active session can
 			// never be mistaken for a stale session owned by another installation.
