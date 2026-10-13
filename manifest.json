@@ -1,9 +1,10 @@
 {
   "id": "sonora",
   "name": "Sonora",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "1.11.4",
   "description": "Listen to, review, and respond to your notes without leaving your vault.",
   "author": "ebataryou",
+  "fundingUrl": "https://github.com/sponsors/ryo-ebata",
   "isDesktopOnly": false
 }

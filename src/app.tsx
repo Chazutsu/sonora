@@ -753,17 +753,26 @@ export function SonoraApp(props: SonoraAppProps) {
 								<div className="sonora-continue-list">
 									{resumable.map((item) => {
 										const current = item.chapters[item.chapterIndex];
+										const isPlaying =
+											item.id === props.activeItemId && props.playerState === "playing";
+										const actionLabel = isPlaying
+											? props.copy.pauseChapter
+											: props.copy.resumeChapter;
 										return (
 											<button
 												key={item.id}
 												type="button"
 												onClick={() => props.onPlayPause(item.id)}
-												aria-label={props.copy.resumeChapter
+												aria-label={actionLabel
 													.replace("{title}", item.title)
 													.replace("{chapter}", current?.heading ?? props.copy.readyToPlay)}
 											>
 												<span className="sonora-continue-play">
-													<Play size={18} fill="currentColor" />
+													{isPlaying ? (
+														<Pause size={18} fill="currentColor" />
+													) : (
+														<Play size={18} fill="currentColor" />
+													)}
 												</span>
 												<span>
 													<strong>{item.title}</strong>

@@ -14,6 +14,8 @@ describe("Sonora localization", () => {
 		const copy = copyFor("en", "ja-JP");
 
 		expect(copy.settingsVoiceLanguage).toBe("Voice language");
+		expect(copy.settingsReportIssue).toBe("Report an issue");
+		expect(copy.settingsDonate).toBe("Donate");
 		expect(copy.commandRetrySaving).toBe("Retry saving progress");
 		expect(copy.noticeSaveFailed).toContain("iCloud");
 		expect(copy.noticeSpeechUnavailable).toContain("unavailable");
@@ -22,6 +24,8 @@ describe("Sonora localization", () => {
 		const copy = copyFor("ja", "en-US");
 
 		expect(copy.settingsVoiceLanguage).toBe("読み上げ言語");
+		expect(copy.settingsReportIssue).toBe("問題を報告");
+		expect(copy.settingsDonate).toBe("寄付する");
 		expect(copy.commandRetrySaving).toBe("進捗の保存を再試行");
 		expect(copy.noticeSaveFailed).toContain("iCloud");
 		expect(copy.noticeSpeechUnavailable).toContain("利用できない");

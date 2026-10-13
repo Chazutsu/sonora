@@ -24,3 +24,5 @@ if (globalCssPatterns.some((pattern) => pattern.test(styles))) {
 
 const artifacts = await collectArtifactSet({ source: root });
 for (const [name, digest] of artifacts.digests) console.log(`${name} sha256:${digest.slice(0, 12)}`);
+console.log("Issues: https://github.com/Chazutsu/sonora/issues");
+console.log("Donate: https://github.com/sponsors/ryo-ebata");

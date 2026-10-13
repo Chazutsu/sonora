@@ -30,6 +30,11 @@ The same episode model is intended to support generated connection podcasts late
 
 Sonora uses the device speech-synthesis and recording APIs. It does not send note or audio content to an external service.
 
+## Support
+
+- [Report a bug or request a feature](https://github.com/Chazutsu/sonora/issues)
+- [Support development on GitHub Sponsors](https://github.com/sponsors/ryo-ebata)
+
 ## Known limitation
 
 Background speech and headset controls depend on the capabilities exposed by Obsidian Mobile's web view and the operating system. The plugin exposes Media Session controls, but uninterrupted playback while the screen is locked must be verified on each supported mobile release.

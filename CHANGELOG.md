@@ -4,6 +4,16 @@ All notable changes to Sonora are documented here.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-13
+
+### Added
+
+- Added direct GitHub Issues and GitHub Sponsors links to settings, documentation, and release verification output ([#2](https://github.com/Chazutsu/sonora/issues/2)).
+
+### Fixed
+
+- Continue Listening now shows a Pause action for the actively playing item while paused, idle, and inactive items retain a Play action, keeping the icon, accessible label, and behavior aligned ([#1](https://github.com/Chazutsu/sonora/issues/1)).
+
 ## [0.1.0] - 2026-10-13
 
 ### Added

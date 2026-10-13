@@ -124,6 +124,32 @@ describe("SonoraApp continue listening", () => {
 		fireEvent.click(buttons[0]!);
 		expect(onPlayPause).toHaveBeenCalledWith("second");
 	});
+
+	it.each([
+		{ state: "playing" as const, activeItemId: "first", action: "Pause" },
+		{ state: "paused" as const, activeItemId: "first", action: "Resume" },
+		{ state: "playing" as const, activeItemId: "second", action: "Resume" },
+	])(
+		"shows $action for $state playback with active item $activeItemId",
+		({ state, activeItemId, action }) => {
+			const onPlayPause = vi.fn();
+			renderApp({
+				queue: [{ ...firstQueueItem, lastPlayedAt: 10 }],
+				activeItemId,
+				playerState: state,
+				onPlayPause,
+			});
+
+			const control = screen.getByRole("button", {
+				name: `${action} First at Chapter one`,
+			});
+			expect(
+				control.querySelector(action === "Pause" ? ".lucide-pause" : ".lucide-play"),
+			).not.toBeNull();
+			fireEvent.click(control);
+			expect(onPlayPause).toHaveBeenCalledWith("first");
+		},
+	);
 });
 
 describe("SonoraApp queue", () => {

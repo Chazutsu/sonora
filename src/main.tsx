@@ -47,6 +47,7 @@ import {
 	type SonoraSettings,
 	type StoredSonoraData,
 } from "./types";
+import { SONORA_DONATE_URL, SONORA_ISSUES_URL } from "./support";
 import { vocabularyChapters, vocabularyFromMarkdown } from "./vocabulary";
 import { VaultEventQueue } from "./vault-event-queue";
 import { enqueueVaultModify, enqueueVaultRename } from "./vault-file-events";
@@ -251,6 +252,19 @@ class SonoraSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.data.settings.recallDelaySeconds)
 					.setDynamicTooltip()
 					.onChange((value) => void this.plugin.updateSettings({ recallDelaySeconds: value })),
+			);
+		new Setting(this.containerEl)
+			.setName(copy.settingsSupport)
+			.setDesc(copy.settingsSupportDesc)
+			.addButton((button) =>
+				button
+					.setButtonText(copy.settingsReportIssue)
+					.onClick(() => window.open(SONORA_ISSUES_URL, "_blank", "noopener,noreferrer")),
+			)
+			.addButton((button) =>
+				button
+					.setButtonText(copy.settingsDonate)
+					.onClick(() => window.open(SONORA_DONATE_URL, "_blank", "noopener,noreferrer")),
 			);
 	}
 }

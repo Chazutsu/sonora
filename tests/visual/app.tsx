@@ -107,6 +107,7 @@ function Preview({ initialItems }: { initialItems: QueueItem[] }) {
 	const locale = scenario === "long-ja" ? "ja" : "en";
 	const [items, setItems] = useState<QueueItem[]>(initialItems);
 	const [activeItemId, setActiveItemId] = useState(initialItems[0]?.id ?? "");
+	const [playerState, setPlayerState] = useState<"playing" | "paused">("playing");
 	const [upNextItemId, setUpNextItemId] = useState<string | null>(initialItems[1]?.id ?? null);
 	const active = items.find((item) => item.id === activeItemId);
 	const updateActive = (update: (item: QueueItem) => QueueItem) =>
@@ -118,7 +119,7 @@ function Preview({ initialItems }: { initialItems: QueueItem[] }) {
 				queue={items}
 				activeItemId={activeItemId}
 				upNextItemId={upNextItemId}
-				playerState="playing"
+				playerState={playerState}
 				settings={DEFAULT_SETTINGS}
 				recording={false}
 				recordingRequesting={false}
@@ -166,7 +167,14 @@ function Preview({ initialItems }: { initialItems: QueueItem[] }) {
 				onRemove={noop}
 				onUndoRemove={noop}
 				onDismissRemove={noop}
-				onPlayPause={noop}
+				onPlayPause={(id) => {
+					if (id === activeItemId) {
+						setPlayerState((current) => (current === "playing" ? "paused" : "playing"));
+						return;
+					}
+					setActiveItemId(id);
+					setPlayerState("playing");
+				}}
 				onPrevious={() =>
 					updateActive((item) => ({ ...item, chapterIndex: Math.max(0, item.chapterIndex - 1) }))
 				}

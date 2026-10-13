@@ -420,6 +420,40 @@ test("desktop library preserves hierarchy with long Japanese labels", async ({ p
 	}
 });
 
+test("mobile Continue Listening matches playback state with long Japanese labels", async ({
+	page,
+}) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.goto("./?scenario=long-ja");
+
+	const title = "次のリリースで大切にしたいプロダクト戦略とモバイル再生体験の検討メモ";
+	const chapter = "移動中でも迷わず操作できる情報設計";
+	const pause = page.getByRole("button", {
+		name: `${title}の${chapter}を一時停止`,
+	});
+	await expect(pause).toBeVisible();
+	await expect(pause.locator(".lucide-pause")).toBeVisible();
+
+	const dimensions = await page.locator(".sonora-continue").evaluate((element) => ({
+		clientWidth: element.clientWidth,
+		scrollWidth: element.scrollWidth,
+	}));
+	expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+
+	await pause.click();
+	const resume = page.getByRole("button", {
+		name: `${title}の${chapter}から再生`,
+	});
+	await expect(resume.locator(".lucide-play")).toBeVisible();
+
+	if ((globalThis as { process?: { platform?: string } }).process?.platform === "darwin") {
+		await expect(page.locator(".visual-obsidian-view")).toHaveScreenshot(
+			"mobile-continue-listening-long-japanese.png",
+			{ animations: "disabled" },
+		);
+	}
+});
+
 test("desktop empty library gives a clear starting action", async ({ page }) => {
 	await page.setViewportSize({ width: 1024, height: 768 });
 	await page.goto("./?scenario=empty");
