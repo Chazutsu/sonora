@@ -1,0 +1,36 @@
+name: Dependency and Obsidian policy
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: policy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: moderate
+
+  obsidian-policy:
+    name: Obsidian community policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: obsidianmd/obsidian-workflows@v1
+        with:
+          build: "false"
+          lint: "false"
+          scanner-lint: "true"
+          strict: "false"

@@ -2,33 +2,81 @@ name: Release
 
 on:
   push:
-    tags:
-      - "[0-9]*.[0-9]*.[0-9]*"
+    tags: ["[0-9]*.[0-9]*.[0-9]*"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  quality:
+    name: Release quality
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.7.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: pnpm
+        with: { version: 10.7.0 }
+      - uses: actions/setup-node@v7
+        with: { node-version: "24", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm check:release
+
+  visual:
+    name: Release visual regression
+    runs-on: macos-14
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.7.0 }
+      - uses: actions/setup-node@v7
+        with: { node-version: "24", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install chromium
+      - run: pnpm test:visual
+
+  release:
+    name: Publish signed release assets
+    needs: [quality, visual]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.7.0 }
+      - uses: actions/setup-node@v7
+        with: { node-version: "24", cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - name: Verify tag version
         run: |
           package_version=$(node -p "require('./package.json').version")
           test "${package_version}" = "${GITHUB_REF_NAME}"
       - run: pnpm check:release
+      - name: Package release
+        run: |
+          zip "sonora-${GITHUB_REF_NAME}.zip" main.js manifest.json styles.css
+          sha256sum main.js manifest.json styles.css "sonora-${GITHUB_REF_NAME}.zip" > SHA256SUMS.txt
+      - name: Attest release assets
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
+            sonora-${{ github.ref_name }}.zip
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" main.js manifest.json styles.css --verify-tag --generate-notes
-
+        run: gh release create "$GITHUB_REF_NAME" main.js manifest.json styles.css "sonora-${GITHUB_REF_NAME}.zip" SHA256SUMS.txt --verify-tag --generate-notes
