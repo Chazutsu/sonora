@@ -40,6 +40,16 @@ export type JournalReceipt = {
 export type JournalRecovery<T> = { snapshot: T; receipts: JournalReceipt[] };
 export type PersistenceWatermark = { manifestId: string; committedSequence: number };
 
+type ReadonlyJournalReceipt = Readonly<JournalReceipt>;
+type ReadonlyPersistenceWatermark = Readonly<PersistenceWatermark>;
+type ReadonlyJournalManifest = Omit<
+	Readonly<JournalManifest>,
+	"pending" | "committedOperationIds"
+> & {
+	readonly pending: Readonly<Record<string, Readonly<JournalManifest["pending"][string]>>>;
+	readonly committedOperationIds: readonly string[];
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -114,7 +124,7 @@ export class PersistenceJournal<T> {
 	private readonly manifestPath: string;
 
 	constructor(
-		private readonly storage: PersistenceJournalStorage,
+		private readonly storage: Readonly<PersistenceJournalStorage>,
 		private readonly legacyPath: string,
 		private readonly validate: (value: unknown) => T,
 		private readonly createOperationId: () => string = () => crypto.randomUUID(),
@@ -128,8 +138,8 @@ export class PersistenceJournal<T> {
 	}
 
 	async load(
-		watermark?: PersistenceWatermark,
-		authoritativeSnapshot?: T,
+		watermark?: ReadonlyPersistenceWatermark,
+		authoritativeSnapshot?: Readonly<T>,
 	): Promise<JournalRecovery<T> | null> {
 		const { manifest, envelopes } = await this.inspect(authoritativeSnapshot);
 		if (watermark) {
@@ -141,7 +151,7 @@ export class PersistenceJournal<T> {
 			}
 			if (watermark.committedSequence > manifest.committedSequence) {
 				const prepared = Object.entries(manifest.pending).filter(
-					([operationId, entry]) =>
+					([operationId, entry]: readonly [string, Readonly<JournalManifest["pending"][string]>]) =>
 						entry.sequence === watermark.committedSequence &&
 						envelopes.get(operationId)?.envelope.sequence === entry.sequence,
 				);
@@ -151,29 +161,41 @@ export class PersistenceJournal<T> {
 			}
 		}
 		const pending = Object.entries(manifest.pending)
-			.map(([operationId, entry]) => {
-				const stored = envelopes.get(operationId);
-				if (!stored || stored.envelope.sequence !== entry.sequence) {
-					throw new Error("Sonora persistence journal is incomplete");
-				}
-				return {
-					snapshot: this.validate(stored.envelope.snapshot),
-					receipt: {
-						operationId,
-						path: entry.path,
-						serialized: stored.serialized,
-						sequence: entry.sequence,
-						manifestId: manifest.manifestId,
-					},
-				};
-			})
-			.toSorted((left, right) => right.receipt.sequence - left.receipt.sequence);
+			.map(
+				([operationId, entry]: readonly [string, Readonly<JournalManifest["pending"][string]>]) => {
+					const stored = envelopes.get(operationId);
+					if (!stored || stored.envelope.sequence !== entry.sequence) {
+						throw new Error("Sonora persistence journal is incomplete");
+					}
+					return {
+						snapshot: this.validate(stored.envelope.snapshot),
+						receipt: {
+							operationId,
+							path: entry.path,
+							serialized: stored.serialized,
+							sequence: entry.sequence,
+							manifestId: manifest.manifestId,
+						},
+					};
+				},
+			)
+			.toSorted(
+				(
+					left: Readonly<{ receipt: ReadonlyJournalReceipt }>,
+					right: Readonly<{ receipt: ReadonlyJournalReceipt }>,
+				) => right.receipt.sequence - left.receipt.sequence,
+			);
 		return pending[0]
-			? { snapshot: pending[0].snapshot, receipts: pending.map((entry) => entry.receipt) }
+			? {
+					snapshot: pending[0].snapshot,
+					receipts: pending.map(
+						(entry: Readonly<{ receipt: ReadonlyJournalReceipt }>) => entry.receipt,
+					),
+				}
 			: null;
 	}
 
-	async write(snapshot: T): Promise<JournalReceipt> {
+	async write(snapshot: Readonly<T>): Promise<JournalReceipt> {
 		const { manifest } = await this.inspect();
 		const operationId = this.createOperationId();
 		if (manifest.pending[operationId] || manifest.committedOperationIds.includes(operationId)) {
@@ -208,7 +230,7 @@ export class PersistenceJournal<T> {
 		return { operationId, path, serialized, sequence, manifestId: manifest.manifestId };
 	}
 
-	async commit(receipts: readonly JournalReceipt[]): Promise<void> {
+	async commit(receipts: readonly ReadonlyJournalReceipt[]): Promise<void> {
 		if (!receipts.length) return;
 		const { manifest, envelopes } = await this.inspect();
 		const pending = { ...manifest.pending };
@@ -239,17 +261,17 @@ export class PersistenceJournal<T> {
 		});
 	}
 
-	async clear(receipt: JournalReceipt): Promise<void> {
+	async clear(receipt: ReadonlyJournalReceipt): Promise<void> {
 		if (!(await this.storage.exists(receipt.path))) return;
 		if ((await this.storage.read(receipt.path)) !== receipt.serialized) return;
 		await this.storage.remove(receipt.path);
 	}
 
-	watermark(receipt: JournalReceipt): PersistenceWatermark {
+	watermark(receipt: ReadonlyJournalReceipt): PersistenceWatermark {
 		return { manifestId: receipt.manifestId, committedSequence: receipt.sequence };
 	}
 
-	private async inspect(authoritativeSnapshot?: T): Promise<{
+	private async inspect(authoritativeSnapshot?: Readonly<T>): Promise<{
 		manifest: JournalManifest;
 		envelopes: Map<string, { envelope: JournalEnvelope; serialized: string }>;
 	}> {
@@ -284,7 +306,13 @@ export class PersistenceJournal<T> {
 			if (authoritativeSnapshot === undefined)
 				throw new Error("Unindexed Sonora persistence generation");
 			const adoptable = unindexed.filter(
-				(candidate) => candidate.envelope.sequence === manifest.nextSequence,
+				(
+					candidate: Readonly<{
+						path: string;
+						envelope: Readonly<JournalEnvelope>;
+						serialized: string;
+					}>,
+				) => candidate.envelope.sequence === manifest.nextSequence,
 			);
 			const adopted = adoptable.length === 1 ? adoptable[0] : undefined;
 			if (adopted) {
@@ -367,7 +395,10 @@ export class PersistenceJournal<T> {
 			}
 		}
 		const selected = valid.toSorted(
-			(left, right) =>
+			(
+				left: Readonly<{ path: string; manifest: ReadonlyJournalManifest }>,
+				right: Readonly<{ path: string; manifest: ReadonlyJournalManifest }>,
+			) =>
 				right.manifest.committedSequence - left.manifest.committedSequence ||
 				right.manifest.nextSequence - left.manifest.nextSequence ||
 				Number(right.path.includes(".next-")) - Number(left.path.includes(".next-")),
@@ -394,7 +425,7 @@ export class PersistenceJournal<T> {
 		});
 		for (const candidate of candidates)
 			candidate.serialized = await this.storage.read(candidate.path);
-		const decoded = candidates.map((candidate) => {
+		const decoded = candidates.map((candidate: Readonly<(typeof candidates)[number]>) => {
 			const parsed: unknown = JSON.parse(candidate.serialized);
 			if (isEnvelope(parsed)) {
 				return { path: candidate.path, operationId: parsed.operationId, order: parsed.sequence };
@@ -408,11 +439,11 @@ export class PersistenceJournal<T> {
 			throw new Error("Invalid Sonora persistence generation during migration");
 		});
 		decoded.sort(
-			(left, right) =>
+			(left: Readonly<(typeof decoded)[number]>, right: Readonly<(typeof decoded)[number]>) =>
 				left.order - right.order || left.operationId.localeCompare(right.operationId),
 		);
 		const pending: JournalManifest["pending"] = {};
-		decoded.forEach((entry, index) => {
+		decoded.forEach((entry: Readonly<(typeof decoded)[number]>, index) => {
 			pending[entry.operationId] = { path: entry.path, sequence: index + 1 };
 		});
 		return {
@@ -428,7 +459,7 @@ export class PersistenceJournal<T> {
 	private parseEnvelope(
 		path: string,
 		serialized: string,
-		manifest: JournalManifest,
+		manifest: ReadonlyJournalManifest,
 	): JournalEnvelope {
 		const parsed: unknown = JSON.parse(serialized);
 		if (isEnvelope(parsed)) return parsed;
@@ -450,7 +481,7 @@ export class PersistenceJournal<T> {
 		throw new Error("Invalid Sonora persistence generation");
 	}
 
-	private async writeManifest(manifest: JournalManifest): Promise<void> {
+	private async writeManifest(manifest: ReadonlyJournalManifest): Promise<void> {
 		const replacementId = crypto.randomUUID();
 		const temporaryPath = `${this.manifestPath}.next-${replacementId}`;
 		const backupPath = `${this.manifestPath}.backup-${replacementId}`;
