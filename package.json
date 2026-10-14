@@ -51,6 +51,6 @@
     "rolldown": "1.0.0-rc.5",
     "typescript": "6.0.0-beta",
     "typescript-eslint": "8.71.2",
-    "vitest": "4.1.11"
+    "vitest": "5.0.3"
   }
 }
